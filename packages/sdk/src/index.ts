@@ -895,3 +895,56 @@ export {
   type AccountDailyUsage,
   type DailyBillableCostBreakdown,
 } from './costs';
+
+// =============================================================================
+// RE-EXPORTED MIDDLEWARE UTILITIES (v0.2.0)
+// =============================================================================
+
+// Project-level circuit breaker middleware
+export {
+  // Constants
+  PROJECT_CB_STATUS,
+  GLOBAL_STOP_KEY,
+  CB_PROJECT_KEYS,
+  CB_ERROR_CODES,
+  BUDGET_STATUS_HEADER,
+  // Functions
+  createProjectKey,
+  checkProjectCircuitBreaker,
+  checkProjectCircuitBreakerDetailed,
+  createCircuitBreakerMiddleware,
+  getCircuitBreakerStates,
+  getProjectStatus,
+  setProjectStatus,
+  isGlobalStopActive,
+  setGlobalStop,
+  // Types
+  type CircuitBreakerStatusValue,
+  type CircuitBreakerCheckResult,
+  type CircuitBreakerMiddlewareOptions,
+  type CircuitBreakerErrorResponse,
+} from './middleware';
+
+// Transient error patterns (zero I/O, fully portable)
+export {
+  TRANSIENT_ERROR_PATTERNS,
+  classifyErrorAsTransient,
+  type TransientErrorPattern,
+} from './patterns';
+
+// Dynamic patterns (KV-backed, AI-discovered)
+export {
+  // Constants
+  DYNAMIC_PATTERNS_KV_KEY,
+  // Functions
+  loadDynamicPatterns,
+  compileDynamicPatterns,
+  clearDynamicPatternsCache,
+  classifyWithDynamicPatterns,
+  exportDynamicPatterns,
+  importDynamicPatterns,
+  // Types
+  type DynamicPatternRule,
+  type CompiledPattern,
+  type ClassificationResult,
+} from './dynamic-patterns';

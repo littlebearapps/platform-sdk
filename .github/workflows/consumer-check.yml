@@ -1,0 +1,352 @@
+name: Consumer SDK Check
+
+# Reusable workflow for consumer repos to validate Platform SDK integration.
+# Usage in consumer repo:
+#   jobs:
+#     sdk-check:
+#       uses: littlebearapps/platform-sdk/.github/workflows/consumer-check.yml@main
+#       with:
+#         project-name: scout
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: 'Project slug for feature ID validation (e.g. scout, brand-copilot)'
+        required: true
+        type: string
+      node-version:
+        description: 'Node.js version'
+        required: false
+        type: string
+        default: '20'
+      wrangler-config-pattern:
+        description: 'Glob pattern for wrangler config files'
+        required: false
+        type: string
+        default: 'wrangler*.jsonc'
+      source-pattern:
+        description: 'Comma-separated globs for source files to check'
+        required: false
+        type: string
+        default: 'workers/**/*.ts,src/**/*.ts'
+      check-middleware:
+        description: 'Check if CB middleware uses SDK import'
+        required: false
+        type: boolean
+        default: true
+      strict-mode:
+        description: 'Fail on warnings (not just errors)'
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      project-name:
+        description: 'Project slug for manual testing'
+        required: true
+        type: string
+        default: 'platform'
+      node-version:
+        description: 'Node.js version'
+        required: false
+        type: string
+        default: '20'
+      wrangler-config-pattern:
+        description: 'Glob pattern for wrangler config files'
+        required: false
+        type: string
+        default: 'wrangler*.jsonc'
+      source-pattern:
+        description: 'Comma-separated globs for source files to check'
+        required: false
+        type: string
+        default: 'workers/**/*.ts,src/**/*.ts'
+      check-middleware:
+        description: 'Check if CB middleware uses SDK import'
+        required: false
+        type: boolean
+        default: true
+      strict-mode:
+        description: 'Fail on warnings (not just errors)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sdk-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Platform SDK Integration Check
+        env:
+          PROJECT_NAME: ${{ inputs.project-name }}
+          WRANGLER_PATTERN: ${{ inputs.wrangler-config-pattern }}
+          SOURCE_PATTERN: ${{ inputs.source-pattern }}
+          CHECK_MIDDLEWARE: ${{ inputs.check-middleware }}
+          STRICT_MODE: ${{ inputs.strict-mode }}
+        run: |
+          set +e  # Don't exit on first error — collect all results
+
+          ERRORS=0
+          WARNINGS=0
+          SUMMARY="| Check | Status | Details |\n|-------|--------|---------|"
+
+          add_result() {
+            local check="$1" status="$2" details="$3"
+            if [ "$status" = "FAIL" ]; then
+              ERRORS=$((ERRORS + 1))
+              SUMMARY="$SUMMARY\n| $check | :x: FAIL | $details |"
+              echo "::error::$check: $details"
+            elif [ "$status" = "WARN" ]; then
+              WARNINGS=$((WARNINGS + 1))
+              SUMMARY="$SUMMARY\n| $check | :warning: WARN | $details |"
+              echo "::warning::$check: $details"
+            else
+              SUMMARY="$SUMMARY\n| $check | :white_check_mark: PASS | $details |"
+            fi
+          }
+
+          # ── 1. SDK Installation ──────────────────────────────────────────
+          echo "::group::SDK Installation"
+          SDK_PKG="node_modules/@littlebearapps/platform-sdk/package.json"
+          if [ -f "$SDK_PKG" ]; then
+            SDK_VERSION=$(node -p "require('./$SDK_PKG').version")
+            add_result "SDK installed" "PASS" "v$SDK_VERSION"
+          else
+            add_result "SDK installed" "FAIL" "@littlebearapps/platform-sdk not found in node_modules"
+          fi
+          echo "::endgroup::"
+
+          # ── 2. Wrangler Config ───────────────────────────────────────────
+          echo "::group::Wrangler Config"
+          WRANGLER_FILES=$(find . -maxdepth 2 -name "$WRANGLER_PATTERN" -not -path './node_modules/*' 2>/dev/null)
+          if [ -z "$WRANGLER_FILES" ]; then
+            add_result "Wrangler configs" "WARN" "No files matching $WRANGLER_PATTERN found"
+          else
+            WRANGLER_COUNT=$(echo "$WRANGLER_FILES" | wc -l)
+            CACHE_MISSING=0
+            QUEUE_MISSING=0
+            OBS_MISSING=0
+            TAIL_MISSING=0
+
+            for f in $WRANGLER_FILES; do
+              # Strip JSONC comments for parsing
+              CONTENT=$(sed 's|//.*$||' "$f" | tr -d '\n')
+
+              if ! echo "$CONTENT" | grep -q '"PLATFORM_CACHE"'; then
+                CACHE_MISSING=$((CACHE_MISSING + 1))
+              fi
+              if ! echo "$CONTENT" | grep -q '"platform-telemetry"\|"TELEMETRY_QUEUE"'; then
+                QUEUE_MISSING=$((QUEUE_MISSING + 1))
+              fi
+              if ! echo "$CONTENT" | grep -q '"observability".*"enabled".*true'; then
+                OBS_MISSING=$((OBS_MISSING + 1))
+              fi
+              if ! echo "$CONTENT" | grep -q '"tail_consumers"'; then
+                TAIL_MISSING=$((TAIL_MISSING + 1))
+              fi
+            done
+
+            if [ "$CACHE_MISSING" -gt 0 ]; then
+              add_result "KV: PLATFORM_CACHE" "WARN" "$CACHE_MISSING/$WRANGLER_COUNT configs missing PLATFORM_CACHE binding"
+            else
+              add_result "KV: PLATFORM_CACHE" "PASS" "All $WRANGLER_COUNT configs have PLATFORM_CACHE"
+            fi
+
+            if [ "$QUEUE_MISSING" -gt 0 ]; then
+              add_result "Queue: telemetry" "WARN" "$QUEUE_MISSING/$WRANGLER_COUNT configs missing platform-telemetry queue"
+            else
+              add_result "Queue: telemetry" "PASS" "All $WRANGLER_COUNT configs have telemetry queue"
+            fi
+
+            if [ "$OBS_MISSING" -gt 0 ]; then
+              add_result "Observability" "WARN" "$OBS_MISSING/$WRANGLER_COUNT configs missing observability.enabled"
+            else
+              add_result "Observability" "PASS" "All $WRANGLER_COUNT configs have observability enabled"
+            fi
+
+            if [ "$TAIL_MISSING" -gt 0 ]; then
+              add_result "Tail consumers" "WARN" "$TAIL_MISSING/$WRANGLER_COUNT configs missing tail_consumers"
+            else
+              add_result "Tail consumers" "PASS" "All $WRANGLER_COUNT configs have tail_consumers"
+            fi
+          fi
+          echo "::endgroup::"
+
+          # ── 3. SDK Usage ─────────────────────────────────────────────────
+          echo "::group::SDK Usage"
+
+          # Expand comma-separated globs into find arguments
+          IFS=',' read -ra PATTERNS <<< "$SOURCE_PATTERN"
+          SOURCE_FILES=""
+          for pat in "${PATTERNS[@]}"; do
+            FOUND=$(find . -path "./$pat" -not -path './node_modules/*' 2>/dev/null)
+            SOURCE_FILES="$SOURCE_FILES $FOUND"
+          done
+          SOURCE_FILES=$(echo "$SOURCE_FILES" | xargs)
+
+          if [ -z "$SOURCE_FILES" ]; then
+            add_result "Source files" "WARN" "No source files matching $SOURCE_PATTERN"
+          else
+            FILE_COUNT=$(echo "$SOURCE_FILES" | wc -w)
+
+            # Budget wrappers
+            BUDGET_HITS=$(grep -rl 'withFeatureBudget\|withCronBudget\|withQueueBudget' $SOURCE_FILES 2>/dev/null | wc -l)
+            if [ "$BUDGET_HITS" -gt 0 ]; then
+              add_result "Budget wrappers" "PASS" "Found in $BUDGET_HITS file(s)"
+            else
+              add_result "Budget wrappers" "FAIL" "No withFeatureBudget/withCronBudget/withQueueBudget calls found"
+            fi
+
+            # Feature ID format
+            FEATURE_IDS=$(grep -roh "'${PROJECT_NAME}:[^']*'" $SOURCE_FILES 2>/dev/null | sort -u | head -10)
+            if [ -n "$FEATURE_IDS" ]; then
+              ID_COUNT=$(echo "$FEATURE_IDS" | wc -l)
+              add_result "Feature IDs" "PASS" "$ID_COUNT unique IDs matching ${PROJECT_NAME}:*:*"
+            else
+              add_result "Feature IDs" "WARN" "No feature IDs matching '${PROJECT_NAME}:*:*' format"
+            fi
+
+            # CircuitBreakerError handling
+            CB_ERROR_HITS=$(grep -rl 'CircuitBreakerError' $SOURCE_FILES 2>/dev/null | wc -l)
+            if [ "$CB_ERROR_HITS" -gt 0 ]; then
+              add_result "CB error handling" "PASS" "CircuitBreakerError handled in $CB_ERROR_HITS file(s)"
+            else
+              add_result "CB error handling" "WARN" "No CircuitBreakerError catch blocks found"
+            fi
+          fi
+          echo "::endgroup::"
+
+          # ── 4. Cost Safety ───────────────────────────────────────────────
+          echo "::group::Cost Safety"
+
+          if [ -n "$SOURCE_FILES" ]; then
+            # D1 .run() in loops (heuristic: .run( on a line after for/while)
+            LOOP_RUN=$(grep -n '\.run(' $SOURCE_FILES 2>/dev/null | while read -r line; do
+              FILE=$(echo "$line" | cut -d: -f1)
+              LINENO=$(echo "$line" | cut -d: -f2)
+              # Check 10 lines above for loop constructs
+              START=$((LINENO - 10))
+              [ "$START" -lt 1 ] && START=1
+              CONTEXT=$(sed -n "${START},${LINENO}p" "$FILE" 2>/dev/null)
+              if echo "$CONTEXT" | grep -qE '^\s*(for|while)\s*\('; then
+                echo "$FILE:$LINENO"
+              fi
+            done)
+            if [ -n "$LOOP_RUN" ]; then
+              LOOP_COUNT=$(echo "$LOOP_RUN" | wc -l)
+              add_result "D1 loop inserts" "WARN" "$LOOP_COUNT potential .run() calls inside loops — consider .batch()"
+            else
+              add_result "D1 loop inserts" "PASS" "No .run() inside loop constructs"
+            fi
+
+            # INSERT without ON CONFLICT
+            INSERTS=$(grep -rn 'INSERT\s\+INTO' $SOURCE_FILES 2>/dev/null || true)
+            if [ -n "$INSERTS" ]; then
+              NO_CONFLICT=$(echo "$INSERTS" | grep -iv 'ON CONFLICT' | wc -l)
+              if [ "$NO_CONFLICT" -gt 0 ]; then
+                add_result "ON CONFLICT" "WARN" "$NO_CONFLICT INSERT statements without ON CONFLICT clause"
+              else
+                add_result "ON CONFLICT" "PASS" "All INSERT statements have ON CONFLICT"
+              fi
+            else
+              add_result "ON CONFLICT" "PASS" "No INSERT statements found"
+            fi
+
+            # SELECT without LIMIT
+            SELECTS=$(grep -rn 'SELECT\s' $SOURCE_FILES 2>/dev/null | grep -iv 'LIMIT\|COUNT\(\|EXISTS\|pragma\|sqlite_master\|EXPLAIN' || true)
+            if [ -n "$SELECTS" ]; then
+              NO_LIMIT=$(echo "$SELECTS" | wc -l)
+              if [ "$NO_LIMIT" -gt 5 ]; then
+                add_result "SELECT LIMIT" "WARN" "$NO_LIMIT SELECT queries may be missing LIMIT clause"
+              else
+                add_result "SELECT LIMIT" "PASS" "SELECT queries appear bounded"
+              fi
+            else
+              add_result "SELECT LIMIT" "PASS" "All SELECT queries appear bounded"
+            fi
+
+            # String interpolation in SQL (template literals with SQL keywords)
+            SQL_INTERP=$(grep -rn '`.*\${.*}.*\(SELECT\|INSERT\|UPDATE\|DELETE\)' $SOURCE_FILES 2>/dev/null | wc -l)
+            if [ "$SQL_INTERP" -gt 0 ]; then
+              add_result "SQL injection" "WARN" "$SQL_INTERP potential template literal SQL — use .bind() instead"
+            else
+              add_result "SQL injection" "PASS" "No template literal SQL interpolation detected"
+            fi
+          fi
+          echo "::endgroup::"
+
+          # ── 5. Middleware Check ──────────────────────────────────────────
+          if [ "$CHECK_MIDDLEWARE" = "true" ]; then
+            echo "::group::Middleware Check"
+            LOCAL_CB=$(find . -maxdepth 4 -name '*circuit-breaker*' -not -path './node_modules/*' 2>/dev/null)
+            if [ -n "$LOCAL_CB" ]; then
+              # Check if it's a thin re-export from SDK
+              IS_REEXPORT=false
+              for f in $LOCAL_CB; do
+                if grep -q "@littlebearapps/platform-sdk/middleware" "$f" 2>/dev/null; then
+                  IS_REEXPORT=true
+                fi
+              done
+
+              if [ "$IS_REEXPORT" = "true" ]; then
+                add_result "CB middleware" "PASS" "Local file is a re-export from SDK"
+              else
+                add_result "CB middleware" "WARN" "Local circuit-breaker file found — migrate to @littlebearapps/platform-sdk/middleware"
+              fi
+            else
+              # Check if SDK middleware is imported directly
+              SDK_MW=$(grep -rl "@littlebearapps/platform-sdk/middleware\|platform-sdk.*middleware" $SOURCE_FILES 2>/dev/null | wc -l)
+              if [ "$SDK_MW" -gt 0 ]; then
+                add_result "CB middleware" "PASS" "Using SDK middleware directly ($SDK_MW file(s))"
+              else
+                add_result "CB middleware" "WARN" "No circuit breaker middleware detected"
+              fi
+            fi
+            echo "::endgroup::"
+          fi
+
+          # ── 6. Summary ──────────────────────────────────────────────────
+          echo ""
+          echo "### Platform SDK Check Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Project**: \`$PROJECT_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$SDK_VERSION" ]; then
+            echo "**SDK Version**: \`$SDK_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo -e "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo ":x: **$ERRORS error(s), $WARNINGS warning(s)**" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "::error::SDK check failed with $ERRORS error(s) and $WARNINGS warning(s)"
+            exit 1
+          elif [ "$WARNINGS" -gt 0 ] && [ "$STRICT_MODE" = "true" ]; then
+            echo ":warning: **$WARNINGS warning(s) in strict mode**" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "::error::SDK check failed with $WARNINGS warning(s) (strict mode)"
+            exit 1
+          elif [ "$WARNINGS" -gt 0 ]; then
+            echo ":warning: **$WARNINGS warning(s)** (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "SDK check passed with $WARNINGS warning(s)"
+          else
+            echo ":white_check_mark: **All checks passed**" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "SDK check passed — all checks green"
+          fi

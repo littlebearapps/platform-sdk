@@ -1,0 +1,72 @@
+# Budget Configuration — Limits, Thresholds, Circuit Breakers
+# Sync to D1/KV: npm run sync:config
+
+# Cloudflare Workers Paid Plan limits (as of Jan 2026)
+account_limits:
+  workers:
+    requests: 10_000_000    # 10M requests/month included
+    cpu_ms: 30_000          # 30s CPU time per invocation
+  d1:
+    reads: 25_000_000_000   # 25B reads/month
+    writes: 50_000_000      # 50M writes/month
+    storage_gb: 5           # 5GB included
+  kv:
+    reads: 10_000_000       # 10M reads/month
+    writes: 1_000_000       # 1M writes/month
+    storage_gb: 1           # 1GB included
+  queues:
+    messages: 1_000_000     # 1M messages/month
+  r2:
+    class_a: 1_000_000      # 1M Class A ops/month
+    class_b: 10_000_000     # 10M Class B ops/month
+    storage_gb: 10          # 10GB included
+
+# Default limits (applied when no feature-specific override exists)
+defaults:
+  global_limits:
+    d1_write_limit: 100_000  # Daily D1 write limit per feature
+  daily:
+    d1_reads: 1_000_000
+    d1_writes: 100_000
+    kv_reads: 100_000
+    kv_writes: 10_000
+    worker_requests: 500_000
+    queue_messages: 50_000
+  circuit_breaker:
+    auto_reset_seconds: 3600   # 1 hour
+    cooldown_seconds: 300      # 5 minutes
+  error_budget:
+    error_rate_threshold: 5    # 5% error rate triggers warning
+    window_minutes: 60
+  thresholds:
+    warning: 70    # 70% of budget
+    critical: 90   # 90% of budget
+
+# Cost tiers for feature categorisation
+cost_tiers:
+  low:
+    d1_writes: 10_000
+    kv_writes: 1_000
+  medium:
+    d1_writes: 50_000
+    kv_writes: 5_000
+  high:
+    d1_writes: 200_000
+    kv_writes: 20_000
+  critical:
+    d1_writes: 500_000
+    kv_writes: 50_000
+
+# Per-project budgets
+project_budgets:
+  {{projectSlug}}:
+    daily:
+      d1_writes: 500_000
+      kv_writes: 50_000
+      worker_requests: 1_000_000
+
+# Feature-specific overrides (feature_id: limits)
+feature_overrides:
+  "{{projectSlug}}:cron:hourly":
+    d1_writes: 200_000
+    d1_reads: 500_000

@@ -5,8 +5,6 @@ name: Auto Version Bump
 # - fix:, perf:, refactor: -> patch bump (0.1.0 -> 0.1.1)
 # - feat!: or BREAKING CHANGE -> major bump (0.1.0 -> 1.0.0)
 # - chore:, docs:, style:, test:, ci: -> no bump
-#
-# Requires: GH_PAT secret with repo scope and branch protection bypass
 
 on:
   push:
@@ -50,13 +48,14 @@ jobs:
             echo "Detected: chore/docs/style/test/ci or other -> no bump"
           fi
 
-      - name: Bump version
+      - name: Bump SDK version
         if: steps.bump.outputs.type != 'none'
         env:
           BUMP_TYPE: ${{ steps.bump.outputs.type }}
         run: |
-          CURRENT=$(jq -r '.version' package.json)
-          echo "Current version: $CURRENT"
+          PKG="packages/sdk/package.json"
+          CURRENT=$(jq -r '.version' "$PKG")
+          echo "Current SDK version: $CURRENT"
 
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
@@ -74,8 +73,8 @@ jobs:
 
           echo "New version: $NEW_VERSION"
 
-          jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
+          jq --arg v "$NEW_VERSION" '.version = $v' "$PKG" > "$PKG.tmp"
+          mv "$PKG.tmp" "$PKG"
 
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
@@ -85,6 +84,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add package.json
+          git add packages/sdk/package.json
           git commit -m "chore: bump version to v${NEW_VERSION} [skip ci]"
           git push

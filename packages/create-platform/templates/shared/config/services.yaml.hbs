@@ -1,0 +1,45 @@
+# Service Registry — Source of Truth
+# Sync to D1/KV: npm run sync:config
+
+metadata:
+  version: "1.0.0"
+  autoDiscovery: true
+  kvNamespace: PLATFORM_CACHE
+  d1Database: {{projectSlug}}-metrics
+
+projects:
+  {{projectSlug}}:
+    display_name: "{{projectName}}"
+    status: active
+    tier: paid
+    repository: "{{githubOrg}}/{{projectSlug}}"
+    infrastructure:
+      workers:
+        - id: {{projectSlug}}-usage
+          name: "Usage Collector"
+          script_name: {{projectSlug}}-usage
+          status: active
+          schedule: "0 * * * *"
+      storage:
+        d1:
+          - database_name: {{projectSlug}}-metrics
+            binding: PLATFORM_DB
+    features:
+      api:
+        main-api:
+          display_name: "Main API"
+          feature_id: "{{projectSlug}}:api:main"
+          circuit_breaker: true
+          cost_tier: medium
+      cron:
+        hourly-collection:
+          display_name: "Hourly Collection"
+          feature_id: "{{projectSlug}}:cron:hourly"
+          circuit_breaker: true
+          cost_tier: low
+      queue:
+        telemetry-processing:
+          display_name: "Telemetry Processing"
+          feature_id: "{{projectSlug}}:queue:telemetry"
+          circuit_breaker: true
+          cost_tier: low

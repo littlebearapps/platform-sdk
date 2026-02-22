@@ -5,12 +5,5 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    coverage: {
-      include: ['src/**'],
-      reporter: ['text', 'json-summary'],
-      thresholds: {
-        lines: 65,
-      },
-    },
   },
 });

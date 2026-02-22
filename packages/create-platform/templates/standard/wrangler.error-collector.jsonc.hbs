@@ -1,0 +1,44 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "{{projectSlug}}-error-collector",
+  "main": "workers/error-collector.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "observability": { "enabled": true },
+
+  // Cron: 15-minute error processing + midnight daily digest
+  "triggers": {
+    "crons": ["*/15 * * * *", "0 0 * * *"]
+  },
+
+  // Tail worker: receives logs from other workers
+  "tail_consumers": [
+    { "service": "{{projectSlug}}-usage" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "PLATFORM_DB",
+      "database_name": "{{projectSlug}}-metrics",
+      "database_id": "YOUR_D1_DATABASE_ID"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "PLATFORM_CACHE",
+      "id": "YOUR_KV_NAMESPACE_ID"
+    }
+  ],
+
+  "vars": {
+    "GITHUB_ORG": "{{githubOrg}}",
+    "DEFAULT_ASSIGNEE": "{{defaultAssignee}}",
+    "GATUS_HEARTBEAT_URL": "{{gatusUrl}}"
+  }
+
+  // Secrets needed (set via wrangler secret put):
+  //   GITHUB_APP_ID
+  //   GITHUB_APP_PRIVATE_KEY
+  //   GITHUB_APP_INSTALLATION_ID
+}

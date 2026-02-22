@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "{{projectSlug}}-usage",
+  "main": "workers/platform-usage.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "observability": { "enabled": true },
+
+  // Cron: hourly data collection + midnight rollups
+  "triggers": {
+    "crons": ["0 * * * *", "0 0 * * *"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "PLATFORM_DB",
+      "database_name": "{{projectSlug}}-metrics",
+      "database_id": "YOUR_D1_DATABASE_ID",
+      "migrations_dir": "storage/d1/migrations"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "PLATFORM_CACHE",
+      "id": "YOUR_KV_NAMESPACE_ID"
+    }
+  ],
+
+  "queues": {
+    "consumers": [
+      {
+        "queue": "{{projectSlug}}-telemetry",
+        "max_batch_size": 100,
+        "max_batch_timeout": 30,
+        "dead_letter_queue": "{{projectSlug}}-telemetry-dlq",
+        "max_retries": 3
+      }
+    ],
+    "producers": [
+      { "binding": "TELEMETRY_QUEUE", "queue": "{{projectSlug}}-telemetry" },
+      { "binding": "TELEMETRY_DLQ", "queue": "{{projectSlug}}-telemetry-dlq" }
+    ]
+  },
+
+  "analytics_engine_datasets": [
+    { "binding": "PLATFORM_ANALYTICS", "dataset": "{{projectSlug}}-analytics" }
+  ],
+
+  "vars": {
+    "CLOUDFLARE_ACCOUNT_ID": "YOUR_CLOUDFLARE_ACCOUNT_ID"
+  }
+
+  // Uncomment when you add error-collector (standard tier):
+  // "services": [
+  //   { "binding": "NOTIFICATIONS_API", "service": "{{projectSlug}}-notifications" }
+  // ]
+}

@@ -10,18 +10,21 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  check-sdk:
+    name: SDK Check
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/sdk
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Type check
         run: npx tsc --noEmit
@@ -55,12 +58,38 @@ jobs:
             echo "Version bumped: $NPM_VERSION -> $LOCAL_VERSION"
           fi
 
-  publish:
-    needs: check
+  check-scaffolder:
+    name: Scaffolder Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/create-platform
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npx vitest run
+
+  publish-sdk:
+    name: Publish SDK
+    needs: check-sdk
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: packages/sdk
     steps:
       - uses: actions/checkout@v6
 
@@ -101,3 +130,59 @@ jobs:
           echo "**Previous**: \`${{ steps.check.outputs.npm }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Install: \`npm install @littlebearapps/platform-sdk@${{ steps.check.outputs.local }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-scaffolder:
+    name: Publish Scaffolder
+    needs: check-scaffolder
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/create-platform
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Check if publish needed
+        id: check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          NPM_VERSION=$(npm view @littlebearapps/create-platform version 2>/dev/null || echo "0.0.0")
+
+          echo "local=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "npm=$NPM_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing $LOCAL_VERSION (npm has $NPM_VERSION)"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Already published: $LOCAL_VERSION"
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.publish == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          echo "### Scaffolder Published :package:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version**: \`${{ steps.check.outputs.local }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Install: \`npx @littlebearapps/create-platform\`" >> "$GITHUB_STEP_SUMMARY"

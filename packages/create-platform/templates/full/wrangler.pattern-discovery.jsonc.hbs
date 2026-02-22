@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "{{projectSlug}}-pattern-discovery",
+  "main": "workers/pattern-discovery.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "observability": { "enabled": true },
+
+  "triggers": {
+    "crons": ["0 2 * * *", "0 3 * * *"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "PLATFORM_DB",
+      "database_name": "{{projectSlug}}-metrics",
+      "database_id": "YOUR_D1_DATABASE_ID"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "PLATFORM_CACHE",
+      "id": "YOUR_KV_NAMESPACE_ID"
+    }
+  ],
+
+  "ai": { "binding": "AI" },
+
+  "vars": {
+    "GATUS_HEARTBEAT_URL": "{{gatusUrl}}"
+  }
+}
