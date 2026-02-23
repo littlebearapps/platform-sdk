@@ -76,14 +76,16 @@ jobs:
 
 Checks: SDK installation, wrangler config, budget wrapper usage, cost safety patterns, middleware migration.
 
-## Architecture
+## How They Work Together
+
+The **Consumer SDK** (library) sends telemetry to the **Admin SDK** (backend infrastructure). Install the Consumer SDK in each of your application workers. The Admin SDK scaffolds the backend that processes that telemetry.
 
 ```
-Consumer Projects (your workers)
+Your Workers (Consumer SDK installed)
     |
-    | SDK telemetry (via Queue)
+    | Metrics via TELEMETRY_QUEUE
     v
-Platform Usage Worker (cron + queue consumer)
+Platform Backend (Admin SDK scaffolded)
     |
     v
 D1 Warehouse --- KV Cache --- Analytics Engine
@@ -92,6 +94,8 @@ D1 Warehouse --- KV Cache --- Analytics Engine
     +-- Sentinel (gap detection -> alerts)
     +-- Pattern Discovery (AI -> error classification)
 ```
+
+**Updating:** Consumer SDK updates are `npm update` — no migrations, no side effects. Admin SDK is scaffold-once; see its [update guide](packages/admin-sdk/README.md#updating-your-platform).
 
 ## Documentation
 

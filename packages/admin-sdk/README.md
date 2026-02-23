@@ -97,9 +97,42 @@ npx wrangler d1 migrations apply my-platform-metrics --remote
 npx wrangler deploy -c wrangler.my-platform-usage.jsonc
 ```
 
+## Updating Your Platform
+
+The Admin SDK is a **scaffolder, not a framework** — it generates files once and you own them afterward. There is no built-in upgrade command.
+
+To see what changed between versions:
+
+```bash
+npx @littlebearapps/platform-admin-sdk temp-diff --tier full --skip-prompts
+diff -r my-platform/ temp-diff/
+rm -rf temp-diff/
+```
+
+Then cherry-pick new migrations, workers, or config changes into your project. New D1 migrations are safe to apply — all `INSERT` statements use `ON CONFLICT DO NOTHING`.
+
+## Data Safety
+
+- The scaffolder **refuses to overwrite** existing directories
+- All generated migrations are **idempotent** (`ON CONFLICT DO NOTHING`)
+- The scaffolder **never modifies** existing Cloudflare resources (D1, KV, Queues)
+- Re-applying migrations to an existing database is safe
+
+## What's Not Included
+
+The scaffolder generates core infrastructure only. It does **not** create:
+
+- Dashboards or admin UIs
+- Email workers or notification templates
+- Data connectors (Stripe, GA4, Plausible, etc.)
+- Test suites
+- CI/CD workflows
+
+These are project-specific — build them as you need them.
+
 ## Consumer SDK
 
-The generated workers use `@littlebearapps/platform-consumer-sdk` — the Consumer SDK. Install it in your application workers:
+The generated workers use `@littlebearapps/platform-consumer-sdk` — the Consumer SDK. Install it in your application workers to send telemetry to the platform backend:
 
 ```bash
 npm install @littlebearapps/platform-consumer-sdk

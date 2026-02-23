@@ -301,6 +301,43 @@ The hierarchy checks in order: **global** (kill switch) > **project** > **featur
 
 Budget limits and circuit breaker thresholds are stored in KV (`PLATFORM_CACHE`) under the `CONFIG:FEATURE:` prefix. They're synced from `budgets.yaml` via the Admin SDK's sync script.
 
+Requires a Platform backend — scaffold one with [`@littlebearapps/platform-admin-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-admin-sdk).
+
+## Updating
+
+```bash
+npm update @littlebearapps/platform-consumer-sdk
+```
+
+The Consumer SDK is a **pure library** with zero side effects on update. No database migrations, no KV writes, no config changes. New features are additive and backward compatible within the same major version.
+
+## Feature ID Convention
+
+Feature IDs follow the format `project:category:feature`:
+
+| Example | Project | Category | Feature |
+|---------|---------|----------|---------|
+| `scout:ocr:process` | Scout | OCR | Process scans |
+| `brand-copilot:scanner:github` | Brand Copilot | Scanner | GitHub scanner |
+| `myapp:api:main` | My App | API | Main handler |
+| `myapp:cron:daily-sync` | My App | Cron | Daily sync job |
+
+Register each feature ID in your `budgets.yaml` to set daily limits and circuit breaker thresholds.
+
+## Troubleshooting
+
+**`ReferenceError: PLATFORM_CACHE is not defined`**
+Add the KV binding to your `wrangler.jsonc`. See [Required Bindings](#required-bindings).
+
+**Metrics not appearing in Platform dashboard**
+Check that `TELEMETRY_QUEUE` is bound and the queue exists. Telemetry is silently dropped if the queue binding is missing.
+
+**`CircuitBreakerError` on every request**
+A circuit breaker is stuck in STOP state. Check KV for `CONFIG:FEATURE:{featureId}:STATUS`. Reset with `wrangler kv key put CONFIG:FEATURE:{featureId}:STATUS GO --namespace-id YOUR_KV_ID`.
+
+**Feature usage not tracked**
+Verify the feature ID is registered in `budgets.yaml` and you've run `npm run sync:config` to push it to KV.
+
 ## License
 
 MIT
