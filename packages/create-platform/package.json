@@ -1,6 +1,6 @@
 {
   "name": "@littlebearapps/create-platform",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Platform Admin SDK — scaffold backend infrastructure with workers, circuit breakers, and cost protection for Cloudflare",
   "type": "module",
   "bin": {
@@ -17,6 +17,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "commander": "^14.0.3",
     "handlebars": "^4.7.8",
     "picocolors": "^1.1.1"
   },

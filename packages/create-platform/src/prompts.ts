@@ -1,7 +1,9 @@
 /**
  * Interactive CLI prompts for project scaffolding configuration.
  *
- * Falls back to sensible defaults when running non-interactively.
+ * When flags are provided via CLI, those values are used without prompting.
+ * Falls back to interactive prompts for missing values, or sensible defaults
+ * when running non-interactively.
  */
 
 import * as readline from 'node:readline';
@@ -15,6 +17,22 @@ export interface ScaffoldOptions {
   tier: Tier;
   gatusUrl: string;
   defaultAssignee: string;
+}
+
+/** Pre-filled values from CLI flags. */
+export interface CLIFlags {
+  projectName?: string;
+  tier?: Tier;
+  githubOrg?: string;
+  gatusUrl?: string;
+  defaultAssignee?: string;
+  skipPrompts?: boolean;
+}
+
+const VALID_TIERS: Tier[] = ['minimal', 'standard', 'full'];
+
+export function isValidTier(value: string): value is Tier {
+  return VALID_TIERS.includes(value as Tier);
 }
 
 function slugify(name: string): string {
@@ -60,13 +78,30 @@ async function promptSelect(question: string, options: string[], defaultIndex = 
   return options[idx] ?? options[defaultIndex];
 }
 
-export async function collectOptions(projectNameArg?: string): Promise<ScaffoldOptions> {
-  const projectName = projectNameArg || await prompt('Project name', 'my-platform');
+export async function collectOptions(flags: CLIFlags = {}): Promise<ScaffoldOptions> {
+  if (flags.skipPrompts) {
+    if (!flags.projectName) {
+      throw new Error('--skip-prompts requires a project name argument');
+    }
+    if (!flags.tier) {
+      throw new Error('--skip-prompts requires --tier');
+    }
+    return {
+      projectName: flags.projectName,
+      projectSlug: slugify(flags.projectName),
+      githubOrg: flags.githubOrg ?? '',
+      tier: flags.tier,
+      gatusUrl: flags.gatusUrl ?? '',
+      defaultAssignee: flags.defaultAssignee ?? '',
+    };
+  }
+
+  const projectName = flags.projectName || await prompt('Project name', 'my-platform');
   const projectSlug = await prompt('Project slug (for resource names)', slugify(projectName));
-  const githubOrg = await prompt('GitHub org (for error issue creation)', '');
-  const tier = await promptSelect('Setup tier:', ['minimal', 'standard', 'full'], 1) as Tier;
-  const gatusUrl = await prompt('Gatus status page URL (optional)', '');
-  const defaultAssignee = await prompt('Default GitHub assignee (optional)', '');
+  const tier = flags.tier || await promptSelect('Setup tier:', VALID_TIERS, 1) as Tier;
+  const githubOrg = flags.githubOrg ?? await prompt('GitHub org (for error issue creation)', '');
+  const gatusUrl = flags.gatusUrl ?? await prompt('Gatus status page URL (optional)', '');
+  const defaultAssignee = flags.defaultAssignee ?? await prompt('Default GitHub assignee (optional)', '');
 
   return {
     projectName,

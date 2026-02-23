@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0] - 2026-02-23
+
+### Added
+- **CLI flags**: Non-interactive scaffolding via command-line flags
+  - `--tier <minimal|standard|full>` — infrastructure tier
+  - `--github-org <org>` — GitHub organisation for error issues
+  - `--gatus-url <url>` — Gatus status page URL
+  - `--default-assignee <user>` — default GitHub issue assignee
+  - `--skip-prompts` — fail if required flags missing (for CI/automation)
+- Tier validation: rejects invalid `--tier` values with clear error
+- 14 new CLI flag tests (total: 21 tests)
+
+### Changed
+- Switched from raw `process.argv` to `commander` for robust flag parsing
+- Prompts now skip for pre-filled flags; only ask for missing values
+
 ## [1.0.0] - 2026-02-23
 
 ### Added

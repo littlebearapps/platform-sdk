@@ -7,12 +7,18 @@
  * circuit breakers, and cost protection.
  *
  * Usage:
- *   npx @littlebearapps/create-platform [project-name]
+ *   npx @littlebearapps/create-platform [project-name] [options]
+ *
+ * Examples:
+ *   npx @littlebearapps/create-platform my-project
+ *   npx @littlebearapps/create-platform my-project --tier full --github-org myorg
+ *   npx @littlebearapps/create-platform my-project --tier minimal --skip-prompts
  */
 
 import { resolve } from 'node:path';
+import { Command } from 'commander';
 import pc from 'picocolors';
-import { collectOptions } from './prompts.js';
+import { collectOptions, isValidTier } from './prompts.js';
 import { scaffold } from './scaffold.js';
 
 const BANNER = `
@@ -20,11 +26,44 @@ const BANNER = `
   ${pc.dim('Scaffold backend infrastructure: circuit breakers, budget enforcement, error collection')}
 `;
 
+const program = new Command()
+  .name('create-platform')
+  .description('Scaffold a Cloudflare Workers platform with SDK integration')
+  .version('1.1.0')
+  .argument('[project-name]', 'Name of the project to create')
+  .option('--tier <tier>', 'Infrastructure tier (minimal, standard, full)')
+  .option('--github-org <org>', 'GitHub organisation for error issue creation')
+  .option('--gatus-url <url>', 'Gatus status page URL for heartbeat monitoring')
+  .option('--default-assignee <user>', 'Default GitHub assignee for error issues')
+  .option('--skip-prompts', 'Non-interactive mode — fail if required flags are missing');
+
 async function main(): Promise<void> {
   console.log(BANNER);
 
-  const projectName = process.argv[2];
-  const options = await collectOptions(projectName);
+  program.parse();
+  const opts = program.opts<{
+    tier?: string;
+    githubOrg?: string;
+    gatusUrl?: string;
+    defaultAssignee?: string;
+    skipPrompts?: boolean;
+  }>();
+  const [projectNameArg] = program.args;
+
+  // Validate tier if provided
+  if (opts.tier && !isValidTier(opts.tier)) {
+    console.error(pc.red(`  Error: Invalid tier "${opts.tier}". Must be one of: minimal, standard, full`));
+    process.exit(1);
+  }
+
+  const options = await collectOptions({
+    projectName: projectNameArg,
+    tier: opts.tier as 'minimal' | 'standard' | 'full' | undefined,
+    githubOrg: opts.githubOrg,
+    gatusUrl: opts.gatusUrl,
+    defaultAssignee: opts.defaultAssignee,
+    skipPrompts: opts.skipPrompts,
+  });
 
   const outputDir = resolve(process.cwd(), options.projectName);
 
