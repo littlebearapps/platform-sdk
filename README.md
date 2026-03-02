@@ -1,12 +1,9 @@
 <p align="center">
-  <strong>Platform SDKs</strong><br/>
-  <sub>Automatic cost protection, circuit breaking, and error collection for Cloudflare Workers.</sub>
+  <img src="https://raw.githubusercontent.com/littlebearapps/platform-sdks/main/docs/assets/platform-sdks-logo-full.svg" height="200" alt="Platform SDKs" />
 </p>
 
 <p align="center">
-  Cloudflare doesn't offer usage limits or billing protection for Workers.<br/>
-  A single bug can rack up thousands in charges before you notice.<br/>
-  <strong>Platform SDKs fill that gap.</strong>
+  <strong>Automatic cost protection, circuit breaking, and error collection for Cloudflare Workers.</strong>
 </p>
 
 <p align="center">
@@ -17,29 +14,44 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start">Quick Start</a> · <a href="#-features">Features</a> · <a href="#-packages">Packages</a> · <a href="#-multi-account-support">Multi-Account</a> · <a href="#-claude-code-plugin">Plugin</a> · <a href="#-documentation">Docs</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="#-contributing">Contributing</a>
+  <a href="#%EF%B8%8F-born-from-bill-shock">Why</a> · <a href="#-quick-start">Quick Start</a> · <a href="#-features">Features</a> · <a href="#-packages">Packages</a> · <a href="#-multi-account-support">Multi-Account</a> · <a href="#-claude-code-plugin">Plugin</a> · <a href="#-documentation">Docs</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="#-contributing">Contributing</a>
 </p>
 
 ---
 
 ## ⚡ Quick Start
 
-**1. Install the Consumer SDK:**
+Platform SDKs have two parts: an **Admin backend** you deploy once to your Cloudflare account (the command centre), and a **Consumer library** you install in each worker project to send telemetry back to it.
+
+**New here?** The [end-to-end tutorial](docs/guides/first-worker.md) (~20 min) covers both steps below in detail.
+
+---
+
+**Step 1 — Scaffold your Platform backend (once per account)**
+
+```bash
+npx @littlebearapps/platform-admin-sdk my-platform
+```
+
+An interactive wizard creates a ready-to-deploy backend with D1 migrations, KV setup, budget config, and wrangler configs. Run it once — then you own the code.
+
+| Tier | Workers | What You Get | Est. Cost |
+|------|---------|-------------|-----------|
+| **Minimal** | 1 | Budget enforcement, circuit breakers, usage telemetry | ~$0/mo |
+| **Standard** | 3 | + Error collection (auto GitHub issues), gap detection | ~$0/mo |
+| **Full** | 8 | + AI pattern discovery, notifications, search, alerts | ~$5/mo |
+
+[Admin SDK Quickstart →](docs/admin-sdk/quickstart.md) (~15 min)
+
+---
+
+**Step 2 — Add the Consumer SDK to each worker**
 
 ```bash
 npm install @littlebearapps/platform-consumer-sdk
 ```
 
-**2. Add two bindings** to your `wrangler.jsonc`:
-
-```jsonc
-{
-  "kv_namespaces": [{ "binding": "PLATFORM_CACHE", "id": "YOUR_KV_NAMESPACE_ID" }],
-  "queues": { "producers": [{ "binding": "TELEMETRY_QUEUE", "queue": "your-telemetry-queue" }] }
-}
-```
-
-**3. Wrap your handler** (one import, three lines changed):
+Add two wrangler bindings (KV + queue — IDs come from your Admin backend), then wrap your handler:
 
 ```typescript
 import { withFeatureBudget, completeTracking, CircuitBreakerError } from '@littlebearapps/platform-consumer-sdk';
@@ -48,7 +60,6 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const tracked = withFeatureBudget(env, 'myapp:api:main', { ctx });
     try {
-      // All binding access is now automatically tracked
       const result = await tracked.DB.prepare('SELECT * FROM users LIMIT 100').all();
       return Response.json(result);
     } catch (e) {
@@ -63,9 +74,15 @@ export default {
 };
 ```
 
-That's it. Every D1, KV, R2, AI, Vectorize, Queue, Durable Object, and Workflow call is now tracked, budgeted, and protected by circuit breakers.
+Every D1, KV, R2, AI, Vectorize, Queue, Durable Object, and Workflow call is now tracked, budgeted, and protected by circuit breakers.
 
 > **tsconfig requirement**: Set `"moduleResolution": "bundler"` in your `tsconfig.json`. The SDK ships raw `.ts` source files that wrangler bundles at deploy time.
+
+[Consumer SDK Getting Started →](docs/consumer-sdk/getting-started.md) (~10 min)
+
+---
+
+> **Multi-account?** Consumer SDKs can live in separate Cloudflare accounts and send telemetry back to a single centralised Admin backend. [Multi-account setup →](docs/guides/multi-account.md)
 
 ---
 
@@ -91,32 +108,35 @@ Cloudflare has no built-in spending limits, budget alerts, or circuit breakers f
 ## 🎯 Features
 
 ### Cost Protection
-- **Three-tier circuit breakers** — Global kill switch > project-level > feature-level. Any level can stop expensive operations instantly.
-- **Automatic budget enforcement** — Daily and monthly limits with progressive warnings at 70%, 90%, and hard stop at 100%.
-- **Per-invocation request limits** — Cap D1 writes, KV operations, or AI calls per single request to prevent runaway handlers.
-- **Anomaly detection** — Flags unusual resource spikes without blocking (configurable thresholds per feature).
-- **D1 storage guard** — Monitors database size via PRAGMA to catch unbounded growth.
-- **Cost estimation** — Real-time USD cost calculation using current Cloudflare pricing tiers and paid plan allowances.
+
+- 🛡️ **Three-tier circuit breakers** — Global kill switch > project-level > feature-level. Any level can stop expensive operations instantly.
+- 💰 **Automatic budget enforcement** — Daily and monthly limits with progressive warnings at 70%, 90%, and hard stop at 100%.
+- 🚦 **Per-invocation request limits** — Cap D1 writes, KV operations, or AI calls per single request to prevent runaway handlers.
+- 📈 **Anomaly detection** — Flags unusual resource spikes without blocking (configurable thresholds per feature).
+- 💾 **D1 storage guard** — Monitors database size via PRAGMA to catch unbounded growth.
+- 💵 **Cost estimation** — Real-time USD cost calculation using current Cloudflare pricing tiers and paid plan allowances.
 
 ### Observability
-- **Automatic telemetry** — Every binding call (D1, KV, R2, AI, Vectorize, Queue, DO, Workflow) tracked without code changes.
-- **W3C distributed tracing** — Full `traceparent` / `tracestate` propagation across service bindings with span lifecycle management.
-- **Structured JSON logging** — Log levels (debug/info/warn/error), automatic correlation ID extraction, timed operations, child loggers.
-- **AI Gateway tracking** — Automatic provider + model detection for 10+ AI providers routed through Cloudflare AI Gateway.
-- **Transient error classification** — 125 built-in patterns + AI-discovered dynamic patterns (human-approved) for noise reduction.
-- **Error categorisation** — 11 error categories (D1, KV, Queue, Network, Timeout, Auth, etc.) for consistent classification.
-- **Health checks** — Dual-plane health validation: control plane (KV + circuit breaker) and data plane (queue delivery).
-- **Heartbeat monitoring** — Gatus integration for cron health verification + Durable Object alarm-based heartbeats.
+
+- 📡 **Automatic telemetry** — Every binding call (D1, KV, R2, AI, Vectorize, Queue, DO, Workflow) tracked without code changes.
+- 🔗 **W3C distributed tracing** — Full `traceparent` / `tracestate` propagation across service bindings with span lifecycle management.
+- 📋 **Structured JSON logging** — Log levels (debug/info/warn/error), automatic correlation ID extraction, timed operations, child loggers.
+- 🤖 **AI Gateway tracking** — Automatic provider + model detection for 10+ AI providers routed through Cloudflare AI Gateway.
+- 🔇 **Transient error classification** — 125 built-in patterns + AI-discovered dynamic patterns (human-approved) for noise reduction.
+- 🏷️ **Error categorisation** — 11 error categories (D1, KV, Queue, Network, Timeout, Auth, etc.) for consistent classification.
+- ✅ **Health checks** — Dual-plane health validation: control plane (KV + circuit breaker) and data plane (queue delivery).
+- 💓 **Heartbeat monitoring** — Gatus integration for cron health verification + Durable Object alarm-based heartbeats.
 
 ### Developer Experience
-- **Zero production dependencies** — Raw TypeScript source, bundled by wrangler. Nothing extra in your worker.
-- **One-line integration** — Wrap your handler with `withFeatureBudget()`, done. Cron and queue wrappers too.
-- **Hono middleware** — Project-level circuit breakers as middleware for Hono apps.
-- **Service client** — Cross-worker correlation chain and trace context propagation via service bindings.
-- **AI Gateway integration** — Drop-in `createAIGatewayFetch()` wrapper that tracks model usage automatically.
-- **Timeout utilities** — `withTimeout()`, `withTrackedTimeout()`, and handler-level `withRequestTimeout()` with configurable defaults.
-- **Exponential backoff** — Built-in retry helper with configurable attempts and capped backoff.
-- **Durable Object heartbeat mixin** — `withHeartbeat()` adds alarm-based health pings to any DO class.
+
+- 📦 **Zero production dependencies** — Raw TypeScript source, bundled by wrangler. Nothing extra in your worker.
+- ⚡ **One-line integration** — Wrap your handler with `withFeatureBudget()`, done. Cron and queue wrappers too.
+- 🔌 **Hono middleware** — Project-level circuit breakers as middleware for Hono apps.
+- 🔀 **Service client** — Cross-worker correlation chain and trace context propagation via service bindings.
+- 🧠 **AI Gateway integration** — Drop-in `createAIGatewayFetch()` wrapper that tracks model usage automatically.
+- ⏱️ **Timeout utilities** — `withTimeout()`, `withTrackedTimeout()`, and handler-level `withRequestTimeout()` with configurable defaults.
+- 🔄 **Exponential backoff** — Built-in retry helper with configurable attempts and capped backoff.
+- 🏠 **Durable Object heartbeat mixin** — `withHeartbeat()` adds alarm-based health pings to any DO class.
 
 ---
 
@@ -197,7 +217,7 @@ graph TD
         W3[Worker C<br/>Consumer SDK]
     end
 
-    subgraph Platform Backend — Admin SDK scaffolded
+    subgraph PB["Platform Backend — Admin SDK scaffolded"]
         Usage[platform-usage<br/>Queue consumer + cron]
         EC[error-collector<br/>Tail worker]
         Sentinel[platform-sentinel<br/>Gap detection]
