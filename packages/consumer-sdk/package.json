@@ -51,7 +51,7 @@
   "author": "Little Bear Apps",
   "license": "MIT",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250214.0",
+    "@cloudflare/workers-types": "^4.20260301.1",
     "@vitest/coverage-v8": "^3.0.5",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
