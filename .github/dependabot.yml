@@ -1,0 +1,70 @@
+# Dependabot configuration for Platform SDKs monorepo
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+version: 2
+
+updates:
+  # Root workspace (shared dev tooling)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps):"
+    labels:
+      - dependencies
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Consumer SDK (devDependencies only — no production deps)
+  - package-ecosystem: npm
+    directory: /packages/consumer-sdk
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps):"
+    labels:
+      - dependencies
+      - consumer-sdk
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Admin SDK (3 production deps: commander, handlebars, picocolors)
+  - package-ecosystem: npm
+    directory: /packages/admin-sdk
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps):"
+    labels:
+      - dependencies
+      - admin-sdk
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions (keep workflow actions up to date)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(ci):"
+    labels:
+      - dependencies
+      - ci
+    groups:
+      actions:
+        patterns:
+          - "*"
