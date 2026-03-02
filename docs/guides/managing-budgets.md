@@ -2,6 +2,8 @@
 
 Day-to-day operations for checking status, resetting breakers, adjusting limits, and handling emergencies.
 
+> **Using Claude Code?** Run `/platform-health` to check circuit breaker states and heartbeats, or `/platform-costs` to review code changes for billing impact. Requires the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin).
+
 ## Checking Circuit Breaker Status
 
 ### Via wrangler CLI

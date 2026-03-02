@@ -497,6 +497,7 @@ See the [Multi-Account Setup guide](../../docs/guides/multi-account.md) for arch
 
 ## Further Reading
 
+- [Getting Started Guide](../../docs/consumer-sdk/getting-started.md) — Step-by-step integration into an existing worker
 - [Architecture Concepts](../../docs/consumer-sdk/concepts.md) — Proxy system deep dive
 - [Circuit Breakers](../../docs/consumer-sdk/circuit-breakers.md) — Three-tier protection hierarchy
 - [Middleware](../../docs/consumer-sdk/middleware.md) — Project-level circuit breakers for Hono

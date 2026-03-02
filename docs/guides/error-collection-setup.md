@@ -4,6 +4,8 @@ Automatic GitHub issue creation from Cloudflare Worker errors. Requires the **St
 
 > **Note:** Platform SDKs are built for Cloudflare-hosted projects. You need a Cloudflare account with the Workers Paid plan, D1, KV, and Queues enabled. The error collection system runs as Cloudflare Workers within your account.
 
+> **Using Claude Code?** The [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) validates `tail_consumers` configuration and error-collector bindings automatically. Run `/platform-audit` to check your setup.
+
 ## Overview
 
 The error-collector is a **tail worker** that receives log events from your application workers. When it sees an error, it:
@@ -17,7 +19,8 @@ Transient errors (rate limits, timeouts, quota exhaustion) are batched into dail
 
 ## Prerequisites
 
-- **Standard or Full tier** Platform backend scaffolded and deployed
+- **Standard or Full tier** Platform backend scaffolded and deployed via the Admin SDK ([`@littlebearapps/platform-admin-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-admin-sdk)). If you haven't set this up yet, see the [Admin SDK Quickstart](../admin-sdk/quickstart.md).
+- **Consumer SDK** ([`@littlebearapps/platform-consumer-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-consumer-sdk)) installed in your application workers. See [Consumer SDK Getting Started](../consumer-sdk/getting-started.md).
 - **GitHub App** or **GitHub token** with issue creation permissions
 - **Cloudflare Workers Paid plan** (for tail consumers)
 

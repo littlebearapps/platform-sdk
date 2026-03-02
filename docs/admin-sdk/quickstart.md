@@ -2,6 +2,10 @@
 
 This guide walks through scaffolding a Platform backend, creating the required Cloudflare resources, deploying, and verifying telemetry — end to end.
 
+**npm:** [`@littlebearapps/platform-admin-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-admin-sdk)
+
+> **Using Claude Code?** Run `/platform-integrate` for a guided setup wizard. Requires the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin).
+
 ## Prerequisites
 
 - Node.js 20+

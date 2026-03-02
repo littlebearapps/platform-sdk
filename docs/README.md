@@ -1,6 +1,26 @@
 # 📚 Platform SDKs Documentation
 
-> **New here?** Start with [Your First Protected Worker](guides/first-worker.md) — a 20-minute tutorial that walks you through protecting a Cloudflare Worker from end to end.
+> **New here?** Two paths depending on where you're starting:
+>
+> **Setting up from scratch?** Start with [Your First Protected Worker](guides/first-worker.md) — a 20-minute tutorial covering both admin backend + consumer SDK end to end.
+>
+> **Already have a Platform backend?** Jump straight to [Consumer SDK Getting Started](consumer-sdk/getting-started.md) to add tracking to an existing worker.
+
+---
+
+## 🚀 Getting Started
+
+| I want to... | Start here |
+|--------------|-----------|
+| Set up everything from scratch (backend + app worker) | [Your First Protected Worker](guides/first-worker.md) |
+| **Scaffold the admin backend** (command centre) | [Admin SDK Quickstart](admin-sdk/quickstart.md) |
+| **Add the consumer SDK** to an existing worker | [Consumer SDK Getting Started](consumer-sdk/getting-started.md) |
+| Migrate from the old package name | [Migrating from v0](guides/migrating-from-v0.md) |
+
+**npm packages:**
+- Admin SDK (backend scaffolder): [`@littlebearapps/platform-admin-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-admin-sdk)
+- Consumer SDK (per-worker library): [`@littlebearapps/platform-consumer-sdk`](https://www.npmjs.com/package/@littlebearapps/platform-consumer-sdk)
+- Claude Code Plugin (optional): [`platform-sdk-plugin`](https://github.com/littlebearapps/platform-sdk-plugin)
 
 ---
 
@@ -10,7 +30,9 @@ Step-by-step walkthroughs for getting started.
 
 | Guide | Time | What You'll Build |
 |-------|------|-------------------|
-| [Your First Protected Worker](guides/first-worker.md) | ~20 min | A worker with budget tracking, circuit breakers, and error handling |
+| [Your First Protected Worker](guides/first-worker.md) | ~20 min | Full end-to-end: admin backend + app worker with tracking and circuit breakers |
+| [Consumer SDK Getting Started](consumer-sdk/getting-started.md) | ~10 min | Add tracking to an existing worker (assumes backend already deployed) |
+| [Admin SDK Quickstart](admin-sdk/quickstart.md) | ~15 min | Scaffold and deploy the Platform backend (command centre) |
 | [Migrating from v0](guides/migrating-from-v0.md) | ~5 min | Update from old `@littlebearapps/platform-sdk` package name |
 
 ---

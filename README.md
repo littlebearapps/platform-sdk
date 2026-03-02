@@ -301,10 +301,14 @@ jobs:
 
 ## 📚 Documentation
 
-### Tutorials
+### Getting Started
 
-- [Your First Protected Worker](docs/guides/first-worker.md) — End-to-end tutorial (~20 minutes)
-- [Migrating from v0](docs/guides/migrating-from-v0.md) — Old package name migration
+| I want to... | Start here |
+|--------------|-----------|
+| Set up everything from scratch | [Your First Protected Worker](docs/guides/first-worker.md) (~20 min) |
+| Scaffold the admin backend (command centre) | [Admin SDK Quickstart](docs/admin-sdk/quickstart.md) (~15 min) |
+| Add the consumer SDK to an existing worker | [Consumer SDK Getting Started](docs/consumer-sdk/getting-started.md) (~10 min) |
+| Migrate from the old package name | [Migrating from v0](docs/guides/migrating-from-v0.md) (~5 min) |
 
 ### How-To Guides
 

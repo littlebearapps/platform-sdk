@@ -2,6 +2,8 @@
 
 How to use Platform SDKs across multiple Cloudflare accounts.
 
+> **Using Claude Code?** The [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) validates wrangler bindings and SDK conventions per-project. Install it in each project that uses the Consumer SDK.
+
 ## Overview
 
 If you run Cloudflare Workers across multiple accounts — whether for client projects, different business units, or compliance isolation — Platform SDKs work in all of them. The Consumer SDK is account-agnostic (it just needs a KV namespace and a queue), and the Admin SDK accepts per-call credentials for cross-account operations.
