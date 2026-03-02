@@ -329,6 +329,7 @@ export async function refreshDynamicPatternsCache(
       FROM transient_pattern_suggestions
       WHERE status = 'approved'
       ORDER BY created_at ASC
+      LIMIT 500
     `
       )
       .all<PatternRule & { id: string }>();

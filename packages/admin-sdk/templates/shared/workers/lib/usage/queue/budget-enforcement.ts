@@ -870,8 +870,9 @@ const MONTHLY_METRIC_TO_COLUMN: Record<string, string> = {
 /** Allowlist for safe column interpolation in SQL. */
 const ALLOWED_MONTHLY_COLUMNS = new Set(Object.values(MONTHLY_METRIC_TO_COLUMN));
 
-// TODO: Add your project IDs here (must match project_registry in D1)
-const MONTHLY_PROJECTS = ['all', 'platform'] as const;
+// TODO: Add your project slugs from project_registry (e.g., 'my-app', 'my-api')
+// 'all' is the account-level aggregate and should always be included.
+const MONTHLY_PROJECTS = ['all'] as const;
 
 /**
  * Check monthly budget usage against limits.
@@ -911,6 +912,10 @@ export async function checkMonthlyBudgets(env: Env): Promise<number> {
       return 0;
     }
 
+    // Pre-calculate month start to enable index usage on (project, snapshot_date)
+    const now = new Date();
+    const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+
     // For each project, get monthly totals from daily_usage_rollups
     for (const project of MONTHLY_PROJECTS) {
       // Get the monthly sum for this project
@@ -930,9 +935,9 @@ export async function checkMonthlyBudgets(env: Env): Promise<number> {
           SUM(vectorize_queries) as vectorize_queries,
           SUM(vectorize_inserts) as vectorize_inserts
         FROM daily_usage_rollups
-        WHERE project = ? AND snapshot_date >= date('now', 'start of month')
+        WHERE project = ? AND snapshot_date >= ?
         LIMIT 1
-      `).bind(project).first<Record<string, number | null>>();
+      `).bind(project, monthStart).first<Record<string, number | null>>();
 
       if (!monthlyTotals) continue;
 

@@ -428,9 +428,18 @@ curl -X POST ${PLATFORM_USAGE_URL}/usage/gaps/backfill -H 'Content-Type: applica
 // =============================================================================
 
 /**
- * Threshold for per-project coverage alerts (percentage)
+ * Default threshold for per-project coverage alerts (percentage).
+ * Can be overridden at runtime via PlatformSettings.gapCoverageThresholdPct.
  */
-const PROJECT_COVERAGE_THRESHOLD = 90;
+const DEFAULT_PROJECT_COVERAGE_THRESHOLD = 90;
+
+/**
+ * KV cache key and TTL for gap detection results.
+ * Gap detection doesn't need 15-minute freshness — 1-hour cache prevents
+ * 96 expensive D1 scans/day from becoming 24.
+ */
+const PROJECT_GAP_CACHE_KEY = 'sentinel:project-gaps:result';
+const PROJECT_GAP_CACHE_TTL = 3600;
 
 /**
  * On-demand resources excluded from coverage "expected" denominator.
@@ -440,6 +449,7 @@ const PROJECT_COVERAGE_THRESHOLD = 90;
  * TODO: Customise this list for your projects' on-demand resources
  */
 const ON_DEMAND_RESOURCE_EXCLUSIONS = new Set([
+  'do:platform-notifications',      // Durable Object, on-demand only
   'worker:platform-settings',       // Admin-only, on-demand API
   'worker:platform-search',         // Admin-only, on-demand API
   'worker:platform-alert-router',   // Only invoked by Gatus/GitHub webhooks
@@ -474,14 +484,30 @@ export interface ProjectGap {
 /**
  * Detect gaps in per-project data coverage.
  * Queries resource_usage_snapshots table for projects with less than
- * PROJECT_COVERAGE_THRESHOLD% coverage in the last 24 hours.
+ * the configured coverage threshold in the last 24 hours.
  *
+ * Results are cached in KV for 1 hour to prevent excessive D1 reads.
+ *
+ * @param coverageThreshold - Coverage percentage threshold (default from PlatformSettings)
  * @returns Array of projects with low coverage, including their repo mapping
  */
 export async function detectProjectGaps(
   env: GapDetectionEnv,
-  log: Logger
+  log: Logger,
+  coverageThreshold: number = DEFAULT_PROJECT_COVERAGE_THRESHOLD
 ): Promise<ProjectGap[]> {
+  // Check KV cache first — gap detection doesn't need 15-minute freshness
+  try {
+    const cached = await env.PLATFORM_CACHE.get(PROJECT_GAP_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached) as ProjectGap[];
+      log.debug('Using cached project gap results', { count: parsed.length });
+      return parsed;
+    }
+  } catch {
+    // Cache miss or parse error — proceed with fresh query
+  }
+
   const gaps: ProjectGap[] = [];
 
   try {
@@ -500,9 +526,10 @@ export async function detectProjectGaps(
           AND project NOT IN ('unknown', 'all')
       ),
       known AS (
-        SELECT project, resource_type, resource_id
+        SELECT DISTINCT project, resource_type, resource_id
         FROM resource_usage_snapshots
-        WHERE project IS NOT NULL
+        WHERE snapshot_hour >= datetime('now', '-7 days')
+          AND project IS NOT NULL
           AND project NOT IN ('unknown', 'all')
           AND (resource_type || ':' || resource_id) NOT IN (${exclusionPlaceholders})
       )
@@ -525,7 +552,7 @@ export async function detectProjectGaps(
       HAVING coverage_pct < ?
     `
     )
-      .bind(...exclusionKeys, PROJECT_COVERAGE_THRESHOLD)
+      .bind(...exclusionKeys, coverageThreshold)
       .all<{
         project: string;
         expected_resources: number;
@@ -547,6 +574,7 @@ export async function detectProjectGaps(
         SELECT DISTINCT resource_type || ':' || resource_id as resource_key
         FROM resource_usage_snapshots
         WHERE project = ?
+          AND snapshot_hour >= datetime('now', '-7 days')
           AND resource_type || ':' || resource_id NOT IN (
             SELECT DISTINCT resource_type || ':' || resource_id
             FROM resource_usage_snapshots
@@ -585,9 +613,10 @@ export async function detectProjectGaps(
               AND project = ?
           ),
           known AS (
-            SELECT resource_type, resource_id
+            SELECT DISTINCT resource_type, resource_id
             FROM resource_usage_snapshots
             WHERE project = ?
+              AND snapshot_hour >= datetime('now', '-7 days')
           )
           SELECT
             k.resource_type,
@@ -636,6 +665,17 @@ export async function detectProjectGaps(
       projectCount: gaps.length,
       projects: gaps.map((g) => `${g.project}:${g.coveragePct}%`),
     });
+
+    // Cache results in KV to avoid repeated expensive D1 queries
+    try {
+      await env.PLATFORM_CACHE.put(
+        PROJECT_GAP_CACHE_KEY,
+        JSON.stringify(gaps),
+        { expirationTtl: PROJECT_GAP_CACHE_TTL }
+      );
+    } catch {
+      // Cache write failure is non-fatal
+    }
   } catch (error) {
     log.error('Failed to detect project gaps', error);
   }

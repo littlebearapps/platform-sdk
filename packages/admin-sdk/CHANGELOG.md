@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0] - 2026-03-02
+
+### Fixed
+- **gap-detection.ts**: Added KV caching (1hr TTL) to prevent 96 D1 scans/day, configurable coverage threshold via `PlatformSettings.gapCoverageThresholdPct`, 7-day time filters on CTEs, and `do:platform-notifications` exclusion
+- **budget-enforcement.ts**: `date('now', 'start of month')` replaced with pre-calculated `monthStart` bind param — enables index usage on `(project, snapshot_date)`
+- **error-collector.ts**: Extracted `handleNewOrRecurringError()` shared function — eliminates ~480 lines of duplicated issue creation logic between `processSoftErrorLog` and `processEvent`
+- **anomaly-detection.ts**: `MONITORED_PROJECTS` changed from LBA-specific `['all', 'platform']` to generic `['all']` with TODO for customisation
+- **budget-enforcement.ts**: `MONTHLY_PROJECTS` changed from LBA-specific `['all', 'platform']` to generic `['all']` with TODO for customisation
+- **pattern-discovery/storage.ts**: Added `LIMIT 500` safety net on `refreshDynamicPatternsCache` approved patterns query
+- **sync-config.ts**: Updated type interfaces to match live platform — added 12 missing `BudgetLimit` fields, `CircuitBreakerConfig`, `FeatureOverride`, `GlobalLimits` interfaces, fixed `Project.tier` type (`string` → `number`), added `sources`, `primary_resource`, `runbook`, `infrastructure` fields
+
+### Added
+- **Barrel export**: `templates/full/workers/lib/pattern-discovery/index.ts` — re-exports all pattern-discovery modules for clean imports
+- **Template validation test**: `tests/template-content.test.ts` — validates seed.sql INSERT columns match CREATE TABLE schema, catches column drift at CI time
+- **KV key patterns documentation**: `docs/kv-key-patterns.md` — comprehensive reference for all ~43 KV key prefixes grouped by subsystem (circuit breaker, budget, settings, error collection, sentinel, pattern discovery, notifications, alert dedup)
+
 ## [1.3.0] - 2026-03-02
 
 ### Fixed

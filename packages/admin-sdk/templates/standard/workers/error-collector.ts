@@ -14,6 +14,7 @@ import type {
   ErrorType,
   ErrorStatus,
   GitHubIssueType,
+  Priority,
 } from './lib/error-collector/types';
 import {
   shouldCapture,
@@ -907,6 +908,268 @@ async function computeFingerprintForLog(
 }
 
 /**
+ * Shared issue creation and lifecycle handling for new and recurring errors.
+ * Both processSoftErrorLog() and processEvent() delegate here after computing
+ * fingerprints and occurrence records.
+ */
+async function handleNewOrRecurringError(ctx: {
+  event: TailEvent;
+  env: Env;
+  github: GitHubClient;
+  mapping: ScriptMapping;
+  errorType: ErrorType;
+  fingerprint: string;
+  category: string | null;
+  isTransient: boolean;
+  occurrence: {
+    id: string;
+    occurrence_count: number;
+    github_issue_number?: number;
+    github_issue_url?: string;
+    status: ErrorStatus;
+  };
+  isNew: boolean;
+  priority: Priority;
+  title: string;
+}): Promise<void> {
+  const {
+    event,
+    env,
+    github,
+    mapping,
+    errorType,
+    fingerprint,
+    category,
+    isTransient,
+    occurrence,
+    isNew,
+    priority,
+    title,
+  } = ctx;
+  const [owner, repo] = mapping.repository.split('/');
+
+  if (isNew) {
+    try {
+      // RACE CONDITION PREVENTION: Acquire lock before searching/creating
+      const lockAcquired = await acquireIssueLock(env.PLATFORM_CACHE, fingerprint);
+      if (!lockAcquired) {
+        console.log(`Lock held by another worker for ${fingerprint}, skipping`);
+        return;
+      }
+
+      try {
+        // DEDUP CHECK: Search GitHub for existing issue with this fingerprint
+        const existingIssue = await findExistingIssueByFingerprint(github, owner, repo, fingerprint);
+
+        if (existingIssue) {
+          // Check if issue is muted/wontfix - don't reopen or create new
+          if (existingIssue.shouldSkip) {
+            console.log(`Issue #${existingIssue.number} is muted/wontfix, skipping`);
+            // Still link D1 record to prevent future searches
+            await updateOccurrenceWithIssue(
+              env.PLATFORM_DB,
+              env.PLATFORM_CACHE,
+              fingerprint,
+              existingIssue.number,
+              `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
+            );
+            return;
+          }
+
+          // Found existing issue - update it instead of creating new
+          const comment = formatRecurrenceComment(
+            event,
+            errorType,
+            occurrence.occurrence_count,
+            existingIssue.state === 'closed'
+          );
+
+          if (existingIssue.state === 'closed') {
+            await github.updateIssue({
+              owner,
+              repo,
+              issue_number: existingIssue.number,
+              state: 'open',
+            });
+            await github.addLabels(owner, repo, existingIssue.number, ['cf:regression']);
+            console.log(`Reopened existing issue #${existingIssue.number} (dedup: ${fingerprint})`);
+          }
+
+          await github.addComment(owner, repo, existingIssue.number, comment);
+
+          await updateOccurrenceWithIssue(
+            env.PLATFORM_DB,
+            env.PLATFORM_CACHE,
+            fingerprint,
+            existingIssue.number,
+            `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
+          );
+
+          if (isTransient && category) {
+            await setTransientErrorWindow(
+              env.PLATFORM_CACHE,
+              event.scriptName,
+              category,
+              existingIssue.number
+            );
+          }
+
+          return;
+        }
+
+        // No existing issue found - create new
+        const body = formatIssueBody(
+          event,
+          errorType,
+          priority,
+          mapping,
+          fingerprint,
+          occurrence.occurrence_count
+        );
+        const labels = getLabels(errorType, priority);
+
+        if (isTransient) {
+          labels.push('cf:transient');
+        }
+
+        const issue = await github.createIssue({
+          owner,
+          repo,
+          title,
+          body,
+          labels,
+          type: getGitHubIssueType(errorType),
+          assignees: env.DEFAULT_ASSIGNEE ? [env.DEFAULT_ASSIGNEE] : [],
+        });
+
+        console.log(
+          `Created issue #${issue.number} for ${event.scriptName}${isTransient ? ` (transient: ${category})` : ''}`
+        );
+
+        await updateOccurrenceWithIssue(
+          env.PLATFORM_DB,
+          env.PLATFORM_CACHE,
+          fingerprint,
+          issue.number,
+          issue.html_url
+        );
+
+        if (isTransient && category) {
+          await setTransientErrorWindow(env.PLATFORM_CACHE, event.scriptName, category, issue.number);
+        }
+
+        // Add to project board
+        try {
+          const issueDetails = await github.getIssue(owner, repo, issue.number);
+          await github.addToProject(issueDetails.node_id, env.GITHUB_PROJECT_ID);
+        } catch (e) {
+          console.error(`Failed to add to project board: ${e}`);
+        }
+
+        // Create dashboard notification for P0-P2 errors
+        await createDashboardNotification(
+          env.NOTIFICATIONS_API,
+          priority,
+          errorType,
+          event.scriptName,
+          title,
+          issue.number,
+          issue.html_url,
+          mapping.project
+        );
+      } finally {
+        await releaseIssueLock(env.PLATFORM_CACHE, fingerprint);
+      }
+    } catch (e) {
+      console.error(`Failed to create GitHub issue: ${e}`);
+    }
+  } else if (occurrence.github_issue_number && occurrence.status === 'resolved') {
+    // Error recurred after being resolved
+    if (isTransient) {
+      console.log(
+        `Transient error (${category}) recurred for ${event.scriptName} - not marking as regression`
+      );
+      await env.PLATFORM_DB.prepare(
+        `
+        UPDATE error_occurrences
+        SET status = 'open',
+            resolved_at = NULL,
+            resolved_by = NULL,
+            updated_at = unixepoch()
+        WHERE fingerprint = ?
+      `
+      )
+        .bind(fingerprint)
+        .run();
+      return;
+    }
+
+    // Non-transient error: apply regression logic
+    try {
+      const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
+      if (muted) {
+        console.log(`Issue #${occurrence.github_issue_number} is muted, skipping reopen`);
+        return;
+      }
+
+      await github.updateIssue({
+        owner,
+        repo,
+        issue_number: occurrence.github_issue_number,
+        state: 'open',
+      });
+
+      await github.addLabels(owner, repo, occurrence.github_issue_number, ['cf:regression']);
+
+      await github.addComment(
+        owner,
+        repo,
+        occurrence.github_issue_number,
+        `⚠️ **Regression Detected**\n\nThis error has recurred after being marked as resolved.\n\n- **Occurrences**: ${occurrence.occurrence_count}\n- **Last Seen**: ${new Date().toISOString()}\n\nPlease investigate if the fix was incomplete.`
+      );
+
+      console.log(`Reopened issue #${occurrence.github_issue_number} as regression`);
+
+      await env.PLATFORM_DB.prepare(
+        `
+        UPDATE error_occurrences
+        SET status = 'open',
+            resolved_at = NULL,
+            resolved_by = NULL,
+            updated_at = unixepoch()
+        WHERE fingerprint = ?
+      `
+      )
+        .bind(fingerprint)
+        .run();
+    } catch (e) {
+      console.error(`Failed to reopen issue: ${e}`);
+    }
+  } else if (occurrence.github_issue_number) {
+    // Update existing issue with new occurrence count (every 10 occurrences)
+    try {
+      const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
+      if (muted) {
+        console.log(`Issue #${occurrence.github_issue_number} is muted, skipping comment`);
+        return;
+      }
+
+      if (occurrence.occurrence_count % 10 === 0) {
+        await github.addComment(
+          owner,
+          repo,
+          occurrence.github_issue_number,
+          `📊 **Occurrence Update**\n\nThis error has now occurred **${occurrence.occurrence_count} times**.\n\n- **Last Seen**: ${new Date().toISOString()}\n- **Colo**: ${event.event?.request?.cf?.colo || 'unknown'}`
+        );
+        console.log(`Updated issue #${occurrence.github_issue_number} with occurrence count`);
+      }
+    } catch (e) {
+      console.error(`Failed to update issue: ${e}`);
+    }
+  }
+}
+
+/**
  * Process a single soft error log from a tail event
  * Called for each unique error in an invocation with multiple errors
  */
@@ -997,246 +1260,24 @@ async function processSoftErrorLog(
   // Calculate priority with actual occurrence count
   const priority = calculatePriority(errorType, mapping.tier, occurrence.occurrence_count);
 
-  // If this is a new error, create a GitHub issue (with dedup check)
-  if (isNew) {
-    try {
-      const [owner, repo] = mapping.repository.split('/');
+  // Build title from the specific errorLog (important for multi-error processing)
+  const coreMsg = extractCoreMessage(errorLog.message[0]);
+  const title = `[${event.scriptName}] Error: ${coreMsg.slice(0, 60)}`.slice(0, 100);
 
-      // RACE CONDITION PREVENTION: Acquire lock before searching/creating
-      const lockAcquired = await acquireIssueLock(env.PLATFORM_CACHE, fingerprint);
-      if (!lockAcquired) {
-        console.log(`Lock held by another worker for ${fingerprint}, skipping`);
-        return;
-      }
-
-      try {
-        // DEDUP CHECK: Search GitHub for existing issue with this fingerprint
-        const existingIssue = await findExistingIssueByFingerprint(github, owner, repo, fingerprint);
-
-        if (existingIssue) {
-          // Check if issue is muted/wontfix - don't reopen or create new
-          if (existingIssue.shouldSkip) {
-            console.log(`Issue #${existingIssue.number} is muted/wontfix, skipping`);
-            // Still link D1 record to prevent future searches
-            await updateOccurrenceWithIssue(
-              env.PLATFORM_DB,
-              env.PLATFORM_CACHE,
-              fingerprint,
-              existingIssue.number,
-              `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
-            );
-            return;
-          }
-
-          // Found existing issue - update it instead of creating new
-          const comment = formatRecurrenceComment(
-            event,
-            errorType,
-            occurrence.occurrence_count,
-            existingIssue.state === 'closed'
-          );
-
-          if (existingIssue.state === 'closed') {
-            // Reopen the issue
-            await github.updateIssue({
-              owner,
-              repo,
-              issue_number: existingIssue.number,
-              state: 'open',
-            });
-            await github.addLabels(owner, repo, existingIssue.number, ['cf:regression']);
-            console.log(`Reopened existing issue #${existingIssue.number} (dedup: ${fingerprint})`);
-          }
-
-          await github.addComment(owner, repo, existingIssue.number, comment);
-
-          // Update D1 with the found issue number
-          await updateOccurrenceWithIssue(
-            env.PLATFORM_DB,
-            env.PLATFORM_CACHE,
-            fingerprint,
-            existingIssue.number,
-            `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
-          );
-
-          // For transient errors, record the issue in the window cache
-          if (isTransient && category) {
-            await setTransientErrorWindow(
-              env.PLATFORM_CACHE,
-              event.scriptName,
-              category,
-              existingIssue.number
-            );
-          }
-
-          return; // Don't create a new issue
-        }
-
-        // No existing issue found - create new (original code)
-        const coreMsg = extractCoreMessage(errorLog.message[0]);
-        const title = `[${event.scriptName}] Error: ${coreMsg.slice(0, 60)}`.slice(0, 100);
-        const body = formatIssueBody(
-          event,
-          errorType,
-          priority,
-          mapping,
-          fingerprint,
-          occurrence.occurrence_count
-        );
-        const labels = getLabels(errorType, priority);
-
-        // Add transient label for transient errors
-        if (isTransient) {
-          labels.push('cf:transient');
-        }
-
-        const issue = await github.createIssue({
-          owner,
-          repo,
-          title,
-          body,
-          labels,
-          type: getGitHubIssueType(errorType),
-          assignees: env.DEFAULT_ASSIGNEE ? [env.DEFAULT_ASSIGNEE] : [],
-        });
-
-        console.log(
-          `Created issue #${issue.number} for ${event.scriptName} - ${coreMsg.slice(0, 30)}${isTransient ? ` (transient: ${category})` : ''}`
-        );
-
-        // Update occurrence with issue details
-        await updateOccurrenceWithIssue(
-          env.PLATFORM_DB,
-          env.PLATFORM_CACHE,
-          fingerprint,
-          issue.number,
-          issue.html_url
-        );
-
-        // For transient errors, record the issue in the window cache
-        if (isTransient && category) {
-          await setTransientErrorWindow(env.PLATFORM_CACHE, event.scriptName, category, issue.number);
-        }
-
-        // Add to project board
-        try {
-          const issueDetails = await github.getIssue(owner, repo, issue.number);
-          await github.addToProject(issueDetails.node_id, env.GITHUB_PROJECT_ID);
-        } catch (e) {
-          console.error(`Failed to add to project board: ${e}`);
-        }
-
-        // Create dashboard notification for P0-P2 errors
-        await createDashboardNotification(
-          env.NOTIFICATIONS_API,
-          priority,
-          errorType,
-          event.scriptName,
-          coreMsg,
-          issue.number,
-          issue.html_url,
-          mapping.project
-        );
-      } finally {
-        // Always release lock
-        await releaseIssueLock(env.PLATFORM_CACHE, fingerprint);
-      }
-    } catch (e) {
-      console.error(`Failed to create GitHub issue: ${e}`);
-    }
-  } else if (occurrence.github_issue_number && occurrence.status === 'resolved') {
-    // Error recurred after being resolved
-    // Skip regression logic for transient errors - they're expected to recur
-    if (isTransient) {
-      console.log(
-        `Transient soft error (${category}) recurred for ${event.scriptName} - not marking as regression`
-      );
-      // Just update to open status without regression label
-      await env.PLATFORM_DB.prepare(
-        `
-        UPDATE error_occurrences
-        SET status = 'open',
-            resolved_at = NULL,
-            resolved_by = NULL,
-            updated_at = unixepoch()
-        WHERE fingerprint = ?
-      `
-      )
-        .bind(fingerprint)
-        .run();
-      return;
-    }
-
-    // Non-transient error: apply regression logic
-    try {
-      const [owner, repo] = mapping.repository.split('/');
-
-      // Check if issue is muted - if so, don't reopen or comment
-      const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
-      if (muted) {
-        console.log(`Issue #${occurrence.github_issue_number} is muted, skipping reopen`);
-        return;
-      }
-
-      await github.updateIssue({
-        owner,
-        repo,
-        issue_number: occurrence.github_issue_number,
-        state: 'open',
-      });
-
-      await github.addLabels(owner, repo, occurrence.github_issue_number, ['cf:regression']);
-
-      await github.addComment(
-        owner,
-        repo,
-        occurrence.github_issue_number,
-        `⚠️ **Regression Detected**\n\nThis error has recurred after being marked as resolved.\n\n- **Occurrences**: ${occurrence.occurrence_count}\n- **Last Seen**: ${new Date().toISOString()}\n\nPlease investigate if the fix was incomplete.`
-      );
-
-      console.log(`Reopened issue #${occurrence.github_issue_number} as regression`);
-
-      // Update status in D1
-      await env.PLATFORM_DB.prepare(
-        `
-        UPDATE error_occurrences
-        SET status = 'open',
-            resolved_at = NULL,
-            resolved_by = NULL,
-            updated_at = unixepoch()
-        WHERE fingerprint = ?
-      `
-      )
-        .bind(fingerprint)
-        .run();
-    } catch (e) {
-      console.error(`Failed to reopen issue: ${e}`);
-    }
-  } else if (occurrence.github_issue_number) {
-    // Update existing issue with new occurrence count (every 10 occurrences)
-    if (occurrence.occurrence_count % 10 === 0) {
-      try {
-        const [owner, repo] = mapping.repository.split('/');
-
-        // Check if issue is muted - if so, don't add comments
-        const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
-        if (muted) {
-          console.log(`Issue #${occurrence.github_issue_number} is muted, skipping comment`);
-          return;
-        }
-
-        await github.addComment(
-          owner,
-          repo,
-          occurrence.github_issue_number,
-          `📊 **Occurrence Update**\n\nThis error has now occurred **${occurrence.occurrence_count} times**.\n\n- **Last Seen**: ${new Date().toISOString()}\n- **Colo**: ${event.event?.request?.cf?.colo || 'unknown'}`
-        );
-        console.log(`Updated issue #${occurrence.github_issue_number} with occurrence count`);
-      } catch (e) {
-        console.error(`Failed to update issue: ${e}`);
-      }
-    }
-  }
+  await handleNewOrRecurringError({
+    event,
+    env,
+    github,
+    mapping,
+    errorType,
+    fingerprint,
+    category,
+    isTransient,
+    occurrence,
+    isNew,
+    priority,
+    title,
+  });
 }
 
 /**
@@ -1404,247 +1445,23 @@ async function processEvent(
   // Calculate priority with actual occurrence count
   const priority = calculatePriority(errorType, mapping.tier, occurrence.occurrence_count);
 
-  // If this is a new error, create a GitHub issue (with dedup check)
-  if (isNew) {
-    try {
-      const [owner, repo] = mapping.repository.split('/');
+  // Build title using the standard formatter (handles exception, soft_error, etc.)
+  const title = formatErrorTitle(errorType, event, event.scriptName);
 
-      // RACE CONDITION PREVENTION: Acquire lock before searching/creating
-      const lockAcquired = await acquireIssueLock(env.PLATFORM_CACHE, fingerprint);
-      if (!lockAcquired) {
-        console.log(`Lock held by another worker for ${fingerprint}, skipping`);
-        return;
-      }
-
-      try {
-        // DEDUP CHECK: Search GitHub for existing issue with this fingerprint
-        const existingIssue = await findExistingIssueByFingerprint(github, owner, repo, fingerprint);
-
-        if (existingIssue) {
-          // Check if issue is muted/wontfix - don't reopen or create new
-          if (existingIssue.shouldSkip) {
-            console.log(`Issue #${existingIssue.number} is muted/wontfix, skipping`);
-            // Still link D1 record to prevent future searches
-            await updateOccurrenceWithIssue(
-              env.PLATFORM_DB,
-              env.PLATFORM_CACHE,
-              fingerprint,
-              existingIssue.number,
-              `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
-            );
-            return;
-          }
-
-          // Found existing issue - update it instead of creating new
-          const comment = formatRecurrenceComment(
-            event,
-            errorType,
-            occurrence.occurrence_count,
-            existingIssue.state === 'closed'
-          );
-
-          if (existingIssue.state === 'closed') {
-            // Reopen the issue
-            await github.updateIssue({
-              owner,
-              repo,
-              issue_number: existingIssue.number,
-              state: 'open',
-            });
-            await github.addLabels(owner, repo, existingIssue.number, ['cf:regression']);
-            console.log(`Reopened existing issue #${existingIssue.number} (dedup: ${fingerprint})`);
-          }
-
-          await github.addComment(owner, repo, existingIssue.number, comment);
-
-          // Update D1 with the found issue number
-          await updateOccurrenceWithIssue(
-            env.PLATFORM_DB,
-            env.PLATFORM_CACHE,
-            fingerprint,
-            existingIssue.number,
-            `https://github.com/${owner}/${repo}/issues/${existingIssue.number}`
-          );
-
-          // For transient errors, record the issue in the window cache
-          if (isTransient && category) {
-            await setTransientErrorWindow(
-              env.PLATFORM_CACHE,
-              event.scriptName,
-              category,
-              existingIssue.number
-            );
-          }
-
-          return; // Don't create a new issue
-        }
-
-        // No existing issue found - create new (original code)
-        const title = formatErrorTitle(errorType, event, event.scriptName);
-        const body = formatIssueBody(
-          event,
-          errorType,
-          priority,
-          mapping,
-          fingerprint,
-          occurrence.occurrence_count
-        );
-        const labels = getLabels(errorType, priority);
-
-        // Add transient label for transient errors
-        if (isTransient) {
-          labels.push('cf:transient');
-        }
-
-        const issue = await github.createIssue({
-          owner,
-          repo,
-          title,
-          body,
-          labels,
-          type: getGitHubIssueType(errorType),
-          assignees: env.DEFAULT_ASSIGNEE ? [env.DEFAULT_ASSIGNEE] : [],
-        });
-
-        console.log(
-          `Created issue #${issue.number} for ${event.scriptName}${isTransient ? ` (transient: ${category})` : ''}`
-        );
-
-        // Update occurrence with issue details
-        await updateOccurrenceWithIssue(
-          env.PLATFORM_DB,
-          env.PLATFORM_CACHE,
-          fingerprint,
-          issue.number,
-          issue.html_url
-        );
-
-        // For transient errors, record the issue in the window cache
-        if (isTransient && category) {
-          await setTransientErrorWindow(env.PLATFORM_CACHE, event.scriptName, category, issue.number);
-        }
-
-        // Add to project board
-        try {
-          const issueDetails = await github.getIssue(owner, repo, issue.number);
-          await github.addToProject(issueDetails.node_id, env.GITHUB_PROJECT_ID);
-          console.log(`Added issue #${issue.number} to project board`);
-        } catch (e) {
-          console.error(`Failed to add to project board: ${e}`);
-        }
-
-        // Create dashboard notification for P0-P2 errors
-        await createDashboardNotification(
-          env.NOTIFICATIONS_API,
-          priority,
-          errorType,
-          event.scriptName,
-          title,
-          issue.number,
-          issue.html_url,
-          mapping.project
-        );
-      } finally {
-        // Always release lock
-        await releaseIssueLock(env.PLATFORM_CACHE, fingerprint);
-      }
-    } catch (e) {
-      console.error(`Failed to create GitHub issue: ${e}`);
-    }
-  } else if (occurrence.github_issue_number && occurrence.status === 'resolved') {
-    // Error recurred after being resolved
-    // Skip regression logic for transient errors - they're expected to recur
-    if (isTransient) {
-      console.log(
-        `Transient error (${category}) recurred for ${event.scriptName} - not marking as regression`
-      );
-      // Just update to open status without regression label
-      await env.PLATFORM_DB.prepare(
-        `
-        UPDATE error_occurrences
-        SET status = 'open',
-            resolved_at = NULL,
-            resolved_by = NULL,
-            updated_at = unixepoch()
-        WHERE fingerprint = ?
-      `
-      )
-        .bind(fingerprint)
-        .run();
-      return;
-    }
-
-    // Non-transient error: apply regression logic
-    try {
-      const [owner, repo] = mapping.repository.split('/');
-
-      // Check if issue is muted - if so, don't reopen or comment
-      const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
-      if (muted) {
-        console.log(`Issue #${occurrence.github_issue_number} is muted, skipping reopen`);
-        return;
-      }
-
-      await github.updateIssue({
-        owner,
-        repo,
-        issue_number: occurrence.github_issue_number,
-        state: 'open',
-      });
-
-      await github.addLabels(owner, repo, occurrence.github_issue_number, ['cf:regression']);
-
-      await github.addComment(
-        owner,
-        repo,
-        occurrence.github_issue_number,
-        `⚠️ **Regression Detected**\n\nThis error has recurred after being marked as resolved.\n\n- **Occurrences**: ${occurrence.occurrence_count}\n- **Last Seen**: ${new Date().toISOString()}\n\nPlease investigate if the fix was incomplete.`
-      );
-
-      console.log(`Reopened issue #${occurrence.github_issue_number} as regression`);
-
-      // Update status in D1
-      await env.PLATFORM_DB.prepare(
-        `
-        UPDATE error_occurrences
-        SET status = 'open',
-            resolved_at = NULL,
-            resolved_by = NULL,
-            updated_at = unixepoch()
-        WHERE fingerprint = ?
-      `
-      )
-        .bind(fingerprint)
-        .run();
-    } catch (e) {
-      console.error(`Failed to reopen issue: ${e}`);
-    }
-  } else if (occurrence.github_issue_number) {
-    // Update existing issue with new occurrence count
-    try {
-      const [owner, repo] = mapping.repository.split('/');
-
-      // Check if issue is muted - if so, don't add comments
-      const muted = await isIssueMuted(github, owner, repo, occurrence.github_issue_number);
-      if (muted) {
-        console.log(`Issue #${occurrence.github_issue_number} is muted, skipping comment`);
-        return;
-      }
-
-      // Add a comment every 10 occurrences to avoid spam
-      if (occurrence.occurrence_count % 10 === 0) {
-        await github.addComment(
-          owner,
-          repo,
-          occurrence.github_issue_number,
-          `📊 **Occurrence Update**\n\nThis error has now occurred **${occurrence.occurrence_count} times**.\n\n- **Last Seen**: ${new Date().toISOString()}\n- **Colo**: ${event.event?.request?.cf?.colo || 'unknown'}`
-        );
-        console.log(`Updated issue #${occurrence.github_issue_number} with occurrence count`);
-      }
-    } catch (e) {
-      console.error(`Failed to update issue: ${e}`);
-    }
-  }
+  await handleNewOrRecurringError({
+    event,
+    env,
+    github,
+    mapping,
+    errorType,
+    fingerprint,
+    category,
+    isTransient,
+    occurrence,
+    isNew,
+    priority,
+    title,
+  });
 }
 
 /**

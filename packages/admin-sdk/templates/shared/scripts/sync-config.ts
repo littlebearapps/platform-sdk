@@ -36,10 +36,10 @@ const D1_DATABASE_NAME = 'YOUR_D1_DATABASE_NAME';
 
 interface FeatureDefinition {
   display_name: string;
-  feature_id?: string;
   circuit_breaker: boolean;
   description?: string;
   cost_tier: string;
+  sources?: string[];
 }
 
 interface FeatureCategory {
@@ -49,36 +49,90 @@ interface FeatureCategory {
 interface Project {
   display_name: string;
   status: string;
-  tier: string;
+  tier: number;
+  primary_resource?: string;
   repository?: string;
+  runbook?: string;
+  infrastructure?: unknown;
   features?: Record<string, FeatureCategory>;
 }
 
 interface Services {
-  metadata: { version: string };
+  metadata: {
+    version: string;
+    lastUpdated: string;
+  };
   projects: Record<string, Project>;
 }
 
 interface BudgetLimit {
   d1_writes?: number;
   d1_reads?: number;
+  d1_rows_read?: number;
+  d1_rows_written?: number;
   kv_reads?: number;
   kv_writes?: number;
+  kv_deletes?: number;
+  kv_lists?: number;
+  r2_class_a?: number;
+  r2_class_b?: number;
+  ai_requests?: number;
+  ai_neurons?: number;
+  vectorize_queries?: number;
+  vectorize_inserts?: number;
   queue_messages?: number;
+  do_requests?: number;
+  workflow_invocations?: number;
   requests?: number;
   cpu_ms?: number;
 }
 
+interface CircuitBreakerConfig {
+  enabled?: boolean;
+  auto_reset_seconds?: number;
+  cooldown_seconds?: number;
+  max_consecutive_trips?: number;
+  notes?: string;
+}
+
+interface FeatureOverride {
+  hourly?: BudgetLimit;
+  daily?: BudgetLimit;
+  monthly?: BudgetLimit;
+  circuit_breaker?: CircuitBreakerConfig;
+}
+
+interface GlobalLimits {
+  d1_write_limit?: number;
+  do_gb_seconds_daily_limit?: number;
+}
+
 interface Budgets {
+  metadata: {
+    version: string;
+    lastUpdated: string;
+  };
   defaults: {
+    global_limits?: GlobalLimits;
     daily: BudgetLimit;
     circuit_breaker: {
       auto_reset_seconds: number;
       cooldown_seconds: number;
+      max_consecutive_trips: number;
     };
-    thresholds: { warning: number; critical: number };
+    error_budget?: {
+      error_rate_threshold: number;
+      window_minutes: number;
+      min_requests: number;
+    };
+    thresholds: {
+      warning: number;
+      critical: number;
+    };
   };
-  feature_overrides: Record<string, BudgetLimit>;
+  cost_tiers: Record<string, { multiplier: number; description: string }>;
+  project_budgets: Record<string, { allocation_percent: number; notes: string }>;
+  feature_overrides: Record<string, FeatureOverride>;
 }
 
 // =============================================================================

@@ -388,8 +388,9 @@ const MONITORED_METRICS = [
  * Projects monitored for per-project anomaly detection.
  * Includes 'all' (aggregate) plus individual projects.
  */
-// TODO: Add your project IDs here (must match project_registry in D1)
-const MONITORED_PROJECTS = ['all', 'platform'] as const;
+// TODO: Add your project slugs from project_registry (e.g., 'my-app', 'my-api')
+// 'all' is the account-level aggregate and should always be included.
+const MONITORED_PROJECTS = ['all'] as const;
 
 /**
  * Run anomaly detection for key metrics across all monitored projects.

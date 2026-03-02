@@ -8,7 +8,7 @@
 import type { Tier } from './prompts.js';
 
 /** Single source of truth for the SDK version. */
-export const SDK_VERSION = '1.3.0';
+export const SDK_VERSION = '1.4.0';
 
 /** Tier ordering for upgrade validation. */
 const TIER_ORDER: Record<Tier, number> = { minimal: 0, standard: 1, full: 2 };
@@ -110,6 +110,9 @@ const SHARED_FILES: TemplateFile[] = [
   // Workers — lib/usage/collectors (pluggable interface + example)
   { src: 'shared/workers/lib/usage/collectors/index.ts', dest: 'workers/lib/usage/collectors/index.ts', template: false },
   { src: 'shared/workers/lib/usage/collectors/example.ts', dest: 'workers/lib/usage/collectors/example.ts', template: false },
+
+  // Documentation
+  { src: 'shared/docs/kv-key-patterns.md', dest: 'docs/kv-key-patterns.md', template: false },
 ];
 
 const STANDARD_FILES: TemplateFile[] = [
@@ -152,6 +155,7 @@ const FULL_FILES: TemplateFile[] = [
 
   // Workers — pattern-discovery (AI-assisted transient error patterns)
   { src: 'full/workers/pattern-discovery.ts', dest: 'workers/pattern-discovery.ts', template: false },
+  { src: 'full/workers/lib/pattern-discovery/index.ts', dest: 'workers/lib/pattern-discovery/index.ts', template: false },
   { src: 'full/workers/lib/pattern-discovery/types.ts', dest: 'workers/lib/pattern-discovery/types.ts', template: false },
   { src: 'full/workers/lib/pattern-discovery/clustering.ts', dest: 'workers/lib/pattern-discovery/clustering.ts', template: false },
   { src: 'full/workers/lib/pattern-discovery/ai-prompt.ts', dest: 'workers/lib/pattern-discovery/ai-prompt.ts', template: false },

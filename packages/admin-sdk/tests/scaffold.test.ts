@@ -120,8 +120,8 @@ describe('getFilesForTier', () => {
     expect(minWorkers).toBe(40);
     // Standard adds: 2 workers + 7 error-collector libs + 1 sentinel lib + 1 shared lib = 11
     expect(stdWorkers).toBe(51);
-    // Full adds: 5 workers + 6 pattern-discovery libs = 11
-    expect(fullWorkers).toBe(62);
+    // Full adds: 5 workers + 7 pattern-discovery libs (incl. index.ts barrel) = 12
+    expect(fullWorkers).toBe(63);
   });
 
   it('all template source files exist on disk', () => {
