@@ -193,6 +193,7 @@ CREATE TABLE IF NOT EXISTS daily_usage_rollups (
 
   -- Vectorize metrics
   vectorize_queries INTEGER DEFAULT 0,
+  vectorize_inserts INTEGER DEFAULT 0,
   vectorize_vectors_stored_max INTEGER DEFAULT 0,
   vectorize_cost_usd REAL DEFAULT 0,
 

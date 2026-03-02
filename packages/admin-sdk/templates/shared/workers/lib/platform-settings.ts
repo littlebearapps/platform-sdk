@@ -56,6 +56,9 @@ export interface PlatformSettings {
   // Resource limits (daily)
   d1WriteLimit: number;
   doGbSecondsDailyLimit: number;
+
+  // Gap detection
+  gapCoverageThresholdPct: number;
 }
 
 /**
@@ -104,6 +107,9 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   // Resource limits (daily)
   d1WriteLimit: 1_000_000, // 1M writes per 24h (adaptive sampling trigger)
   doGbSecondsDailyLimit: 200_000, // 200K GB-seconds per 24h (~$2.50/day)
+
+  // Gap detection
+  gapCoverageThresholdPct: 90, // Per-project resource coverage threshold (percentage)
 };
 
 /**
@@ -128,6 +134,7 @@ export const SETTING_KEY_MAP: Record<string, keyof PlatformSettings> = {
   error_rate_min_requests: 'errorRateMinRequests',
   d1_write_limit: 'd1WriteLimit',
   do_gb_seconds_daily_limit: 'doGbSecondsDailyLimit',
+  gap_coverage_threshold_pct: 'gapCoverageThresholdPct',
 };
 
 /**
@@ -244,7 +251,13 @@ export async function getPlatformSettings(env: SettingsEnv): Promise<PlatformSet
       try {
         const parsed = JSON.parse(cached) as Partial<PlatformSettings>;
         // Merge with defaults to handle any missing keys
-        return { ...DEFAULT_PLATFORM_SETTINGS, ...parsed };
+        const merged = { ...DEFAULT_PLATFORM_SETTINGS, ...parsed };
+        // Defense-in-depth: floor critical limits to prevent stale/poisoned cache values
+        if (merged.d1WriteLimit < 1000)
+          merged.d1WriteLimit = DEFAULT_PLATFORM_SETTINGS.d1WriteLimit;
+        if (merged.doGbSecondsDailyLimit < 1000)
+          merged.doGbSecondsDailyLimit = DEFAULT_PLATFORM_SETTINGS.doGbSecondsDailyLimit;
+        return merged;
       } catch {
         // Invalid JSON, fall through to D1
       }
@@ -404,4 +417,6 @@ export const EXPECTED_SETTINGS_KEYS = [
   // Resource limits
   'd1_write_limit',
   'do_gb_seconds_daily_limit',
+  // Gap detection
+  'gap_coverage_threshold_pct',
 ];

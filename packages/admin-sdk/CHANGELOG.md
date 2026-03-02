@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0] - 2026-03-02
+
+### Fixed
+- **CRITICAL**: `seed.sql.hbs` referenced non-existent `tier` and `repository` columns in `project_registry` — every fresh install failed on `wrangler d1 migrations apply`. Fixed to use `repo_path` column matching `001_core_tables.sql` schema
+- **CRITICAL**: `daily_usage_rollups` missing `vectorize_inserts` column — monthly budget queries (`SUM(vectorize_inserts)`) in `budget-enforcement.ts` would fail with SQL error at runtime
+- **CRITICAL**: `platform-settings.ts` missing defensive floor on `d1WriteLimit` and `doGbSecondsDailyLimit` — stale/poisoned KV cache could disable circuit breakers (same root cause as January 2026 billing incident)
+- **CRITICAL**: `budget-enforcement.ts` missing `Math.max(d1WriteLimit, 1000)` guard — defence-in-depth complement to platform-settings floor
+- **PERF**: `rollups.ts` used `DATE(snapshot_hour) = ?` bypassing index — replaced with range queries (`snapshot_hour >= ? AND snapshot_hour < ?`) to enable index usage and prevent runaway D1 reads at scale
+- **PERF**: `anomaly-detection.ts` used `datetime('now', ...)` in SQL preventing index usage — pre-calculate JS Date objects as bind params
+- **PERF**: `platform-sentinel.ts` used `DATE(snapshot_hour) >= ?` in 2 queries — replaced with `snapshot_hour >= ?` with ISO timestamp bind params
+
+### Added
+- `gapCoverageThresholdPct` field on `PlatformSettings` interface (configurable gap detection threshold, default 90%)
+- `gap_coverage_threshold_pct` key in `SETTING_KEY_MAP` and `EXPECTED_SETTINGS_KEYS`
+- `vectorize_inserts INTEGER DEFAULT 0` column in `daily_usage_rollups` (migration `002_usage_warehouse.sql`)
+
 ## [1.2.0] - 2026-02-25
 
 ### Fixed

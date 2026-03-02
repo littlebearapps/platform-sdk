@@ -357,7 +357,8 @@ export async function checkAndTripCircuitBreakers(env: Env): Promise<boolean> {
 
   // Fetch settings and D1 writes in parallel
   const [settings, writes24h] = await Promise.all([getPlatformSettings(env), getD1WriteCount(env)]);
-  const d1WriteLimit = settings.d1WriteLimit;
+  // Defense-in-depth: floor critical limits to prevent stale/poisoned cache values
+  const d1WriteLimit = Math.max(settings.d1WriteLimit, 1000);
 
   // Check D1 write limit (global)
   const d1Status = determineCircuitBreakerStatus(writes24h, d1WriteLimit);

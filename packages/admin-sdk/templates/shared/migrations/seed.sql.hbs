@@ -1,4 +1,4 @@
 -- Seed data: register your project in the platform
-INSERT INTO project_registry (project_id, display_name, status, tier, repository)
-VALUES ('{{projectSlug}}', '{{projectName}}', 'active', 'paid', '{{githubOrg}}/{{projectSlug}}')
+INSERT INTO project_registry (project_id, display_name, status, repo_path)
+VALUES ('{{projectSlug}}', '{{projectName}}', 'active', '{{githubOrg}}/{{projectSlug}}')
 ON CONFLICT (project_id) DO NOTHING;

@@ -467,6 +467,13 @@ export async function calculateHourlyRollingStats(
   }
 
   try {
+    // Pre-calculate time bounds to enable index usage on snapshot_hour
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const oneHourAgoStr = oneHourAgo.toISOString().replace(/\.\d{3}Z$/, 'Z');
+
     const result = await env.PLATFORM_DB.prepare(
       `
       SELECT
@@ -476,11 +483,11 @@ export async function calculateHourlyRollingStats(
         AVG(${metric}) as avg_value
       FROM hourly_usage_snapshots
       WHERE project = ?
-        AND snapshot_hour >= datetime('now', '-7 days')
-        AND snapshot_hour < datetime('now', '-1 hour')
+        AND snapshot_hour >= ?
+        AND snapshot_hour < ?
     `
     )
-      .bind(project)
+      .bind(project, sevenDaysAgoStr, oneHourAgoStr)
       .first<{
         sample_count: number;
         sum_value: number;
@@ -522,19 +529,26 @@ export async function detectHourlyD1WriteAnomalies(env: Env): Promise<number> {
   const log = createLoggerFromEnv(env, 'platform-usage', 'platform:usage:anomaly');
 
   try {
+    // Pre-calculate time bounds to enable index usage on snapshot_hour
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const twoHoursAgoStr = twoHoursAgo.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const oneHourAgoStr = oneHourAgo.toISOString().replace(/\.\d{3}Z$/, 'Z');
+
     // Get the last completed hour's value
     const lastHourResult = await env.PLATFORM_DB.prepare(
       `
       SELECT ${metric} as value
       FROM hourly_usage_snapshots
       WHERE project = ?
-        AND snapshot_hour >= datetime('now', '-2 hours')
-        AND snapshot_hour < datetime('now', '-1 hour')
+        AND snapshot_hour >= ?
+        AND snapshot_hour < ?
       ORDER BY snapshot_hour DESC
       LIMIT 1
     `
     )
-      .bind(project)
+      .bind(project, twoHoursAgoStr, oneHourAgoStr)
       .first<{ value: number }>();
 
     if (!lastHourResult || lastHourResult.value === 0) {

@@ -127,11 +127,14 @@ export async function runDailyRollup(env: Env, date: string): Promise<number> {
   const log = createLoggerFromEnv(env, 'platform-usage', 'platform:usage:scheduled');
   log.info(`Running daily rollup for ${date}`, { tag: 'SCHEDULED' });
 
-  // Calculate the previous day's date
+  // Calculate previous and next day dates for range queries (index-friendly)
   const targetDate = new Date(date + 'T00:00:00Z');
   const prevDate = new Date(targetDate);
   prevDate.setUTCDate(prevDate.getUTCDate() - 1);
   const prevDateStr = prevDate.toISOString().split('T')[0];
+  const nextDate = new Date(targetDate);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const nextDateStr = nextDate.toISOString().split('T')[0];
 
   // Check if this is the first day of the month
   const isFirstDayOfMonth = targetDate.getUTCDate() === 1;
@@ -269,11 +272,11 @@ export async function runDailyRollup(env: Env, date: string): Promise<number> {
       MAX(total_cost_usd) as total_cost_usd,
       COUNT(*) as samples_count
     FROM hourly_usage_snapshots
-    WHERE DATE(snapshot_hour) = ?
+    WHERE snapshot_hour >= ? AND snapshot_hour < ?
     GROUP BY project
     `
   )
-    .bind(date)
+    .bind(date + 'T00:00:00Z', nextDateStr + 'T00:00:00Z')
     .all<HourlyMaxRow>();
 
   if (!todayResult.results || todayResult.results.length === 0) {
@@ -324,11 +327,11 @@ export async function runDailyRollup(env: Env, date: string): Promise<number> {
         MAX(COALESCE(workflows_cost_usd, 0)) as workflows_cost_usd,
         MAX(total_cost_usd) as total_cost_usd
       FROM hourly_usage_snapshots
-      WHERE DATE(snapshot_hour) = ?
+      WHERE snapshot_hour >= ? AND snapshot_hour < ?
       GROUP BY project
       `
     )
-      .bind(prevDateStr)
+      .bind(prevDateStr + 'T00:00:00Z', date + 'T00:00:00Z')
       .all<PrevDayMaxRow>();
 
     if (prevResult.results) {

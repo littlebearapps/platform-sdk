@@ -525,8 +525,8 @@ async function fetchCostsFromD1(env: Env, log: Logger): Promise<CostBreakdown | 
         SUM(COALESCE(workflows_cost_usd, 0)) as workflows,
         SUM(COALESCE(total_cost_usd, 0)) as total
       FROM hourly_usage_snapshots
-      WHERE project = 'all' AND DATE(snapshot_hour) >= ?
-    `).bind(billing.start).first<CostBreakdown>();
+      WHERE project = 'all' AND snapshot_hour >= ?
+    `).bind(billing.start + 'T00:00:00Z').first<CostBreakdown>();
 
     if (!result) {
       log.warn('D1 fallback returned no data');
@@ -805,10 +805,10 @@ async function queryAllowanceStatus(
   try {
     // Build a single query for all metrics of this service
     const selectExprs = metricDefs.map((m, i) => `${m.sqlExpr} as metric_${i}`).join(', ');
-    const sql = `SELECT ${selectExprs} FROM hourly_usage_snapshots WHERE project = 'all' AND DATE(snapshot_hour) >= ?`;
+    const sql = `SELECT ${selectExprs} FROM hourly_usage_snapshots WHERE project = 'all' AND snapshot_hour >= ?`;
 
     const result = await env.PLATFORM_DB.prepare(sql)
-      .bind(billingStart)
+      .bind(billingStart + 'T00:00:00Z')
       .first<Record<string, number>>();
 
     if (!result) {
