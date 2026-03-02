@@ -52,7 +52,7 @@ cd packages/consumer-sdk && npx vitest run tests/ \
 cd packages/admin-sdk && npx vitest run
 ```
 
-**Coverage thresholds**: Consumer SDK enforces 85% line coverage in CI. Admin SDK has 59 tests across 5 files.
+**Coverage thresholds**: Consumer SDK enforces 85% line coverage in CI. Admin SDK has 63 tests across 6 files.
 
 ## Type Checking
 

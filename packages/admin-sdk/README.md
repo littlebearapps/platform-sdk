@@ -88,6 +88,8 @@ my-platform/
 ├── workers/
 │   ├── platform-usage.ts      # Data warehouse worker (cron + queue consumer)
 │   └── lib/                   # Shared libraries (billing, analytics, budgets)
+├── docs/
+│   └── kv-key-patterns.md     # KV key prefix reference
 ├── scripts/
 │   └── sync-config.ts         # Sync YAML config to D1/KV
 ├── wrangler.*.jsonc           # Worker configs with binding placeholders
@@ -125,7 +127,7 @@ my-platform/
 | `workers/platform-notifications.ts` | In-app notification API |
 | `workers/platform-search.ts` | Full-text search (FTS5) |
 | `workers/platform-settings.ts` | Settings management API |
-| `workers/lib/pattern-discovery/` | Clustering, AI prompts, validation, shadow evaluation |
+| `workers/lib/pattern-discovery/` | Types, clustering, AI prompts, validation, shadow evaluation |
 | `storage/d1/migrations/006_pattern_discovery.sql` | Pattern tables |
 | `storage/d1/migrations/007_notifications_search.sql` | Notification and search tables |
 

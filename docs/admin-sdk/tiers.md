@@ -32,16 +32,22 @@ my-platform/
 │   ├── services.yaml              # Project registry, feature definitions
 │   └── budgets.yaml               # Daily limits, circuit breaker thresholds
 ├── storage/d1/migrations/
-│   ├── 001_core_schema.sql        # project_registry, resource_usage_snapshots
-│   ├── 002_daily_rollups.sql      # daily_usage_rollups, feature_tracking
-│   ├── 003_analytics_config.sql   # Analytics Engine field mapping
-│   ├── 004_seed_data.sql          # Initial project and feature seed
+│   ├── 001_core_tables.sql        # Core platform tables
+│   ├── 002_usage_warehouse.sql    # Time-series usage warehouse
+│   ├── 003_feature_tracking.sql   # Feature-level tracking and circuit breakers
+│   ├── 004_settings_alerts.sql    # Settings, billing, DLQ, error budgets, audit
+│   └── seed.sql                   # Initial project and feature seed (Handlebars)
 ├── workers/
 │   ├── platform-usage.ts          # Queue consumer + cron
 │   └── lib/
-│       ├── usage/                 # Telemetry processing, data collection
-│       ├── billing/               # Cost calculation, allowance proration
-│       └── budget-enforcement.ts  # Daily + monthly budget checks
+│       ├── billing.ts             # Cost calculation
+│       ├── economics.ts           # Allowance proration
+│       ├── platform-settings.ts   # Settings loader with defensive floors
+│       ├── circuit-breaker-middleware.ts
+│       ├── shared/                # Cross-boundary types and utilities
+│       └── usage/                 # Telemetry processing, budget enforcement, data collection
+├── docs/
+│   └── kv-key-patterns.md         # KV key prefix reference (~43 prefixes)
 ├── scripts/
 │   └── sync-config.ts             # YAML → D1/KV sync
 ├── wrangler.my-platform-usage.jsonc
@@ -78,12 +84,17 @@ workers/
 ├── platform-sentinel.ts                  # Monitoring cron
 ├── lib/
 │   ├── error-collector/
-│   │   ├── fingerprint.ts               # Error fingerprinting + deduplication
-│   │   ├── github-issues.ts             # GitHub issue creation
-│   │   ├── gap-alerts.ts                # Gap alert processing
-│   │   └── digest.ts                    # Daily error digest
-│   └── sentinel/
-│       └── gap-detection.ts             # Per-project coverage monitoring
+│   │   ├── capture.ts                   # Error event capture
+│   │   ├── fingerprint.ts              # Error fingerprinting + deduplication
+│   │   ├── types.ts                    # Shared type definitions
+│   │   ├── github.ts                   # GitHub issue creation
+│   │   ├── digest.ts                   # Daily error digest
+│   │   ├── gap-alerts.ts              # Gap alert processing
+│   │   └── email-health-alerts.ts     # Email-based health alerts
+│   ├── sentinel/
+│   │   └── gap-detection.ts            # Per-project coverage monitoring
+│   └── shared/
+│       └── slack-alerts.ts             # Slack alert utilities
 storage/d1/migrations/
 └── 005_error_collection.sql             # error_occurrences, fingerprint_decisions, warning_digests
 wrangler.my-platform-error-collector.jsonc
@@ -133,6 +144,8 @@ workers/
 ├── platform-settings.ts                  # Settings API
 ├── lib/
 │   └── pattern-discovery/
+│       ├── index.ts                     # Barrel export
+│       ├── types.ts                     # Pattern type definitions
 │       ├── ai-prompt.ts                 # DeepSeek/Gemini prompts
 │       ├── clustering.ts               # Error clustering
 │       ├── shadow-evaluation.ts         # Pattern shadow testing

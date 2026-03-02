@@ -119,7 +119,7 @@ npx @littlebearapps/platform-admin-sdk upgrade
 
 ```json
 {
-  "sdkVersion": "1.2.0",
+  "sdkVersion": "1.4.0",
   "tier": "standard",
   "context": {
     "projectName": "My Platform",
