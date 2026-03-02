@@ -1,12 +1,19 @@
 # Platform SDKs
 
 > Automatic cost protection, circuit breaking, and telemetry for Cloudflare Workers.
+> Cloudflare doesn't offer usage limits or billing protection — Platform SDKs fill that gap.
 > Monorepo: github.com/littlebearapps/platform-sdks
+
+## The Problem
+
+Cloudflare has no built-in spending limits, budget alerts, or circuit breakers for Workers.
+A single bug — infinite loop, retry storm, misconfigured cron — can rack up thousands in charges.
+In January 2026, a buggy deployment caused $4,868 in unexpected charges (4.8 billion D1 rows in 4 days).
 
 ## Packages
 
-- @littlebearapps/platform-consumer-sdk — Runtime library, install in each Worker
-- @littlebearapps/platform-admin-sdk — CLI scaffolder, generates backend infrastructure once
+- @littlebearapps/platform-consumer-sdk — Runtime library, install in each Worker. Zero dependencies. Ships raw TypeScript.
+- @littlebearapps/platform-admin-sdk — CLI scaffolder, generates backend infrastructure once. You own the code.
 
 ## Consumer SDK — Core Pattern
 
@@ -34,7 +41,7 @@ export default {
 ## Feature ID Format
 
 `project:category:feature` — three colon-separated kebab-case parts.
-Examples: `scout:ocr:process`, `brand-copilot:scanner:github`, `myapp:api:main`, `myapp:cron:daily-sync`
+Examples: `myapp:api:main`, `myapp:cron:daily-sync`, `payments:webhook:stripe`, `analytics:ingest:events`
 
 ## Required Wrangler Bindings
 
@@ -99,6 +106,12 @@ npx @littlebearapps/platform-admin-sdk adopt . --tier minimal        # adopt pre
 - Standard (3 workers): + error-collector (tail worker, auto GitHub issues), platform-sentinel (gap detection, cost monitoring)
 - Full (8 workers): + pattern-discovery (AI error classification), alert-router, notifications, search, settings
 
+## Multi-Account Support
+
+Consumer SDK: Works in any Cloudflare account with KV + Queue. Same code, different wrangler binding IDs.
+Admin SDK: Accepts accountId + apiToken per API call for cross-account monitoring and kill switch.
+Architecture options: Centralised (one account hosts backend), Federated (each account independent), Hybrid.
+
 ## CI Integration (Reusable Workflow)
 
 ```yaml
@@ -112,12 +125,26 @@ jobs:
 
 Checks: SDK install, wrangler config bindings, budget wrapper usage, feature ID format, cost safety (loop inserts, ON CONFLICT, LIMIT, SQL injection), middleware migration.
 
+## Claude Code Plugin
+
+Companion plugin: github.com/littlebearapps/platform-sdk-plugin
+Install: `/plugin marketplace add littlebearapps/lba-plugins` then `/plugin install platform-sdk@lba-plugins`
+Provides: 3 rules (always-loaded SDK conventions, cost safety, wrangler bindings), 8 skills (on-demand reference), 4 agents (integration wizard, auditor, debugger, cost reviewer), 4 hooks (automated validation).
+Commands: `/platform-integrate`, `/platform-audit`, `/platform-health`, `/platform-costs`
+
 ## Common Errors
 
 - `CircuitBreakerError` — Budget exhausted or kill switch active. Return 503.
 - Telemetry silently dropped — Missing `TELEMETRY_QUEUE` binding in wrangler config.
 - `Illegal invocation` on service bindings — Upgrade to v1.0.0+ (fixed Fetcher proxy wrapping).
 - `completeTracking` has no effect — Must be called on the tracked env (returned by `withFeatureBudget`), not the original `env`.
+
+## Documentation
+
+Tutorials: docs/guides/first-worker.md, docs/guides/migrating-from-v0.md
+How-To: docs/guides/multi-account.md, docs/guides/managing-budgets.md, docs/guides/error-collection-setup.md
+Consumer SDK Reference: docs/consumer-sdk/ (concepts, circuit-breakers, feature-ids, middleware, telemetry, patterns, advanced, troubleshooting)
+Admin SDK Reference: docs/admin-sdk/ (quickstart, tiers, upgrade-guide, ci-workflow)
 
 ## Links
 

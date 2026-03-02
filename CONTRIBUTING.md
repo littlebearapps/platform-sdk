@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing. This document covers development setup, code style, and how to submit changes.
 
+> **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for real-time SDK convention validation while you develop.
+
 ## Development Setup
 
 **Prerequisites**: Node.js 20+ and npm.
