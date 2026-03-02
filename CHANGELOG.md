@@ -11,6 +11,10 @@ Version numbers track the Consumer SDK (the primary runtime package).
 
 ---
 
+## [Unreleased]
+
+<!-- Add your changes here. Reference GitHub issues: [#N](https://github.com/littlebearapps/platform-sdks/issues/N) -->
+
 ## [1.1.1] - 2026-02-25
 
 ### Fixed

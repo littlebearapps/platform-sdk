@@ -345,9 +345,13 @@ jobs:
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and how to submit changes.
+Found a bug? Got an idea? [Open an issue](https://github.com/littlebearapps/platform-sdks/issues) — we'd love to hear from you.
+
+Want to contribute code? See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and guidelines.
 
 > **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for real-time SDK convention validation while you develop.
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
 
 ---
 
