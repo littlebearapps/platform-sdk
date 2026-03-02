@@ -10,6 +10,8 @@ Install in each Worker project. Zero production dependencies. Ships raw TypeScri
 npm install @littlebearapps/platform-consumer-sdk
 ```
 
+> **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for automated SDK convention enforcement — it validates wrangler bindings, budget wrappers, and cost safety patterns in real time.
+
 ### tsconfig Requirement
 
 The SDK ships raw `.ts` source files that wrangler bundles at deploy time. Your `tsconfig.json` must use:
@@ -487,8 +489,15 @@ Sub-path exports require `"moduleResolution": "bundler"` or `"nodenext"`. The `"
 
 See [Troubleshooting Guide](../../docs/consumer-sdk/troubleshooting.md) for more issues and solutions.
 
+## Multi-Account Support
+
+The Consumer SDK works in any Cloudflare account — each account just needs its own KV namespace and telemetry queue. The SDK code is identical across accounts; only the wrangler binding IDs differ.
+
+See the [Multi-Account Setup guide](../../docs/guides/multi-account.md) for architecture patterns and detailed instructions.
+
 ## Further Reading
 
+- [Getting Started Guide](../../docs/consumer-sdk/getting-started.md) — Step-by-step integration into an existing worker
 - [Architecture Concepts](../../docs/consumer-sdk/concepts.md) — Proxy system deep dive
 - [Circuit Breakers](../../docs/consumer-sdk/circuit-breakers.md) — Three-tier protection hierarchy
 - [Middleware](../../docs/consumer-sdk/middleware.md) — Project-level circuit breakers for Hono
@@ -497,7 +506,12 @@ See [Troubleshooting Guide](../../docs/consumer-sdk/troubleshooting.md) for more
 - [Error Patterns](../../docs/consumer-sdk/patterns.md) — Static and dynamic transient error classification
 - [Advanced Features](../../docs/consumer-sdk/advanced.md) — Tracing, logging, service client, AI Gateway
 - [Troubleshooting](../../docs/consumer-sdk/troubleshooting.md) — Expanded issue guide
+- [Health Monitoring & Heartbeats](../../docs/guides/health-monitoring.md) — Health checks, Gatus heartbeats, budget alerts
+- [Observability Setup](../../docs/guides/observability.md) — Structured logging, distributed tracing, AI Gateway, timeouts
+- [Managing Budgets](../../docs/guides/managing-budgets.md) — Day-to-day budget and circuit breaker operations
+- [Error Collection Setup](../../docs/guides/error-collection-setup.md) — Automatic GitHub issues from worker errors
+- [Multi-Account Setup](../../docs/guides/multi-account.md) — Using SDKs across multiple Cloudflare accounts
 
-## License
+## Licence
 
-MIT
+MIT — Made with ❤️ by [Little Bear Apps](https://littlebearapps.com) 🐶

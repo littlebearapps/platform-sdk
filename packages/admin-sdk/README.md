@@ -4,6 +4,8 @@
 
 Generates workers, D1 migrations, and config files. Run once, then you own the code.
 
+> **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for automated SDK convention enforcement — it validates wrangler bindings, budget wrappers, and cost safety patterns in real time.
+
 ## Prerequisites
 
 - **Node.js 20+** and npm
@@ -311,6 +313,10 @@ Add to each application worker's `wrangler.jsonc`:
 
 See the [Consumer SDK README](../consumer-sdk/README.md) for integration details and the [First Worker tutorial](../../docs/guides/first-worker.md) for a complete walkthrough.
 
-## License
+## Multi-Account Support
 
-MIT
+The Admin SDK's programmatic API accepts `accountId` and `apiToken` per call, enabling cross-account monitoring and emergency control from a single script or worker. See the [Multi-Account Setup guide](../../docs/guides/multi-account.md) for architecture patterns.
+
+## Licence
+
+MIT — Made with ❤️ by [Little Bear Apps](https://littlebearapps.com) 🐶

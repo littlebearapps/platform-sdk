@@ -201,6 +201,37 @@ const tracked = withFeatureBudget(env, 'myapp:api:main', {
 });
 ```
 
+## Multi-Account Issues
+
+### KV namespace bound to wrong account
+
+KV namespaces are account-scoped. If you deploy a worker to Account B but reference Account A's KV namespace ID in your `wrangler.jsonc`, the binding will fail silently or return unexpected results. Verify the namespace ID matches the account you're deploying to:
+
+```bash
+npx wrangler kv namespace list
+# Confirm PLATFORM_CACHE ID matches your wrangler.jsonc
+```
+
+### Queue consumer not receiving messages across accounts
+
+Cloudflare Queues are account-scoped — a queue producer in Account A cannot write directly to a queue in Account B. For cross-account telemetry, use HTTP endpoints on the platform-usage worker instead of queue bindings. See the [Multi-Account Setup guide](../guides/multi-account.md) for architecture options.
+
+### Verifying the backend receives telemetry
+
+If you're unsure whether telemetry is flowing from your workers to the Platform backend:
+
+1. Check the queue has messages: `npx wrangler queues list`
+2. Check D1 for recent data:
+   ```bash
+   npx wrangler d1 execute my-platform-metrics --remote \
+     --command "SELECT feature_key, MAX(snapshot_hour) FROM resource_usage_snapshots GROUP BY feature_key"
+   ```
+3. Check for queue consumer errors: `npx wrangler tail platform-usage`
+
+### Circuit breakers not visible across accounts
+
+Circuit breaker state lives in KV, which is account-scoped. If you stop a feature in Account A's KV, workers in Account B won't see it. To stop a feature globally across accounts, set the status in each account's PLATFORM_CACHE. See the [Managing Budgets guide](../guides/managing-budgets.md#emergency-procedures) for details.
+
 ## Migration Issues
 
 ### Migrating from `@littlebearapps/platform-sdk`

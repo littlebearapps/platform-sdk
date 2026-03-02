@@ -1,0 +1,25 @@
+# Platform SDKs — Cursor Rules
+
+## Project
+Monorepo: @littlebearapps/platform-consumer-sdk + @littlebearapps/platform-admin-sdk
+Protects Cloudflare Workers from bill shock via automatic metric collection, circuit breaking, and budget enforcement.
+
+## TypeScript
+- Strict mode, no `any` (use `unknown`)
+- Consumer SDK ships raw .ts — wrangler bundles at deploy
+- Admin SDK uses Handlebars templates in templates/
+- Tests: Vitest (`npm test`)
+
+## Conventions
+- Australian English (licence, realise, colour)
+- Conventional commits (feat:, fix:, docs:, chore:)
+- Import order: external → types → internal → relative
+- Feature IDs: project:category:feature (kebab-case)
+
+## Key APIs
+- withFeatureBudget(env, featureId, { ctx }) — wrap fetch handlers
+- withCronBudget(env, featureId, { ctx, cronExpression }) — wrap cron handlers
+- withQueueBudget(env, featureId, { message, queueName }) — wrap queue handlers
+- completeTracking(trackedEnv) — flush metrics (always call in finally block)
+- CircuitBreakerError — thrown when feature is disabled
+- health(env, featureId) — dual-plane health check (KV + queue)

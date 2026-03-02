@@ -1,6 +1,10 @@
 # Contributing to Platform SDKs
 
-Thanks for your interest in contributing. This document covers development setup, code style, and how to submit changes.
+Thanks for your interest in contributing! Whether you're reporting a bug, suggesting a feature, or submitting a pull request, we appreciate your help making Cloudflare Workers safer for everyone.
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By participating, you agree to uphold a welcoming, inclusive environment.
+
+> **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for real-time SDK convention validation while you develop.
 
 ## Development Setup
 
@@ -127,6 +131,39 @@ To add a new template:
 5. Open a PR — the CI workflow runs automatically
 
 Please mention which package your change affects in the PR description (consumer-sdk, admin-sdk, or both).
+
+### Pull request guidelines
+
+- Keep PRs focused — one feature or fix per PR
+- Include tests for new functionality
+- Update docs if you change user-facing behaviour
+- Reference any related issues: `Fixes #N` or `Closes #N`
+
+## Issue Tracking
+
+- Every bug fix PR should reference a GitHub issue
+- Create issues for bugs you find, even if you fix them immediately
+- Use the issue templates: [Bug report](https://github.com/littlebearapps/platform-sdks/issues/new?template=bug_report.yml) or [Feature request](https://github.com/littlebearapps/platform-sdks/issues/new?template=feature_request.yml)
+- Link issues in your PR description: `Fixes #N` or `Closes #N`
+
+## Changelog
+
+Update `CHANGELOG.md` in your PR if it changes user-facing behaviour:
+
+- Add your entry under an `## [Unreleased]` heading at the top
+- Reference the GitHub issue: `[#N](https://github.com/littlebearapps/platform-sdks/issues/N)`
+- Follow the existing format: categorised sections (Added, Fixed, Changed, etc.)
+- Per-package changelogs (`packages/*/CHANGELOG.md`) are optional but welcome for detailed entries
+
+## Reporting Issues
+
+Use [GitHub Issues](https://github.com/littlebearapps/platform-sdks/issues) to report bugs or request features. Include:
+
+- SDK version (`npm ls @littlebearapps/platform-consumer-sdk`)
+- Wrangler version and compatibility date
+- Relevant wrangler config (redact namespace IDs and tokens)
+- Steps to reproduce
+- Expected vs actual behaviour
 
 ## Questions?
 

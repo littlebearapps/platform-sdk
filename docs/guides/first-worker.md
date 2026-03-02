@@ -5,6 +5,8 @@ This tutorial walks through the complete setup: scaffolding a Platform backend, 
 **Time**: ~20 minutes
 **Prerequisites**: Node.js 20+, wrangler CLI authenticated, Cloudflare Workers Paid plan
 
+> **Using Claude Code?** Install the [Platform SDK Plugin](https://github.com/littlebearapps/platform-sdk-plugin) for automated SDK convention enforcement as you code. It validates wrangler bindings, budget wrappers, and cost safety patterns in real time.
+
 ## Step 1: Scaffold the Backend
 
 ```bash
@@ -220,7 +222,10 @@ npx wrangler kv key put CONFIG:FEATURE:myapp:api:main:STATUS GO --namespace-id Y
 ## What's Next
 
 - **Add more features**: Wrap cron and queue handlers with `withCronBudget` and `withQueueBudget`
+- **Add observability**: Set up [structured logging, distributed tracing, and AI Gateway tracking](observability.md)
+- **Add health checks**: Configure [health endpoints, Gatus heartbeats, and budget alerts](health-monitoring.md)
 - **Upgrade tier**: Add error collection with `npx @littlebearapps/platform-admin-sdk upgrade --tier standard`
 - **Add CI**: Set up the [consumer-check.yml workflow](../admin-sdk/ci-workflow.md)
 - **Add middleware**: Protect entire projects with [project-level circuit breakers](../consumer-sdk/middleware.md)
-- **Monitor**: Set up [Gatus heartbeats](../consumer-sdk/advanced.md#heartbeat-ping-gatus) for uptime monitoring
+- **Manage budgets**: Learn day-to-day operations in the [Managing Budgets guide](managing-budgets.md)
+- **Multi-account**: If you manage multiple Cloudflare accounts, see the [Multi-Account Setup guide](multi-account.md)

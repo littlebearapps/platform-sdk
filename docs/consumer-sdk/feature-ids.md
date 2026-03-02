@@ -14,14 +14,14 @@ Three colon-separated parts, all **kebab-case**. The SDK validates this format �
 
 ### Project
 
-The project slug — should match your entry in `services.yaml`:
+The project slug — should match your entry in `services.yaml`. Choose a short, descriptive name for your project:
 
-| Project | Slug |
+| Example | Slug |
 |---------|------|
-| Scout | `scout` |
-| Brand Copilot | `brand-copilot` |
-| Platform | `platform` |
-| Your App | `myapp` |
+| My SaaS App | `myapp` |
+| Image Processing Service | `img-service` |
+| Payment Gateway | `payments` |
+| Analytics Pipeline | `analytics` |
 
 ### Category
 
@@ -57,14 +57,20 @@ The specific operation within the category:
 
 | Feature ID | Description |
 |-----------|-------------|
-| `scout:ocr:process` | Scout's OCR processing |
-| `scout:scanner:github` | Scout scanning GitHub repos |
-| `brand-copilot:ai:generate` | Brand Copilot AI content generation |
-| `brand-copilot:scanner:web` | Brand Copilot web scanner |
 | `myapp:api:main` | Main API handler |
 | `myapp:cron:daily-sync` | Daily sync cron job |
 | `myapp:queue:processor` | Queue consumer processing |
 | `myapp:connector:stripe` | Stripe API integration |
+| `myapp:ai:generate` | AI content generation |
+| `img-service:ocr:process` | Image processing via OCR |
+| `payments:webhook:stripe` | Stripe webhook handler |
+| `analytics:ingest:events` | Event ingestion pipeline |
+
+### Choosing good feature IDs
+
+- **Be specific**: `myapp:api:users` is better than `myapp:api:main` if you have multiple API routes with different cost profiles
+- **Group by cost**: Features that touch expensive bindings (AI, D1 writes) should have their own IDs for granular budget control
+- **Match your crons**: Each cron job should have its own feature ID so budgets and circuit breakers are independent
 
 ## Budget Registration
 
@@ -126,7 +132,7 @@ This writes budget configuration to KV under `CONFIG:FEATURE:{featureId}:BUDGET`
 
 ## Platform's Own Feature IDs
 
-The SDK exports pre-defined feature IDs for Platform's own workers. These are used internally — external projects should define their own:
+The SDK exports pre-defined feature IDs used by Little Bear Apps' internal Platform workers. These are provided as reference examples — your projects should define their own:
 
 ```typescript
 import { PLATFORM_FEATURES, getAllPlatformFeatures } from '@littlebearapps/platform-consumer-sdk';
