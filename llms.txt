@@ -151,5 +151,6 @@ Admin SDK Reference: docs/admin-sdk/ (quickstart, tiers, upgrade-guide, ci-workf
 
 - npm (consumer): https://www.npmjs.com/package/@littlebearapps/platform-consumer-sdk
 - npm (admin): https://www.npmjs.com/package/@littlebearapps/platform-admin-sdk
+- Changelog: CHANGELOG.md (monorepo), packages/consumer-sdk/CHANGELOG.md, packages/admin-sdk/CHANGELOG.md
 - Docs: https://docs.littlebearapps.com/platform-guides/sdk-integration-checklist/
 - Claude Code Plugin: https://github.com/littlebearapps/platform-sdk-plugin

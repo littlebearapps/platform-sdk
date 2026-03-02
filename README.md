@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start">Quick Start</a> · <a href="#-features">Features</a> · <a href="#-packages">Packages</a> · <a href="#-multi-account-support">Multi-Account</a> · <a href="#-claude-code-plugin">Plugin</a> · <a href="#-documentation">Docs</a> · <a href="#-contributing">Contributing</a>
+  <a href="#-quick-start">Quick Start</a> · <a href="#-features">Features</a> · <a href="#-packages">Packages</a> · <a href="#-multi-account-support">Multi-Account</a> · <a href="#-claude-code-plugin">Plugin</a> · <a href="#-documentation">Docs</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="#-contributing">Contributing</a>
 </p>
 
 ---
