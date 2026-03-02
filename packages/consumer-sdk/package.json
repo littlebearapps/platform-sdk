@@ -34,13 +34,19 @@
     "url": "https://github.com/littlebearapps/platform-sdks/issues"
   },
   "keywords": [
+    "cloudflare",
     "cloudflare-workers",
-    "platform-consumer-sdk",
     "circuit-breaker",
     "cost-protection",
+    "billing-safety",
     "telemetry",
-    "feature-budget",
-    "billing-safety"
+    "observability",
+    "budget-enforcement",
+    "usage-monitoring",
+    "d1",
+    "kv",
+    "workers-ai",
+    "feature-budget"
   ],
   "author": "Little Bear Apps",
   "license": "MIT",

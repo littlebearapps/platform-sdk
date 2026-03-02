@@ -35,12 +35,22 @@
     "directory": "packages/admin-sdk"
   },
   "keywords": [
+    "cloudflare",
     "cloudflare-workers",
-    "platform-admin-sdk",
     "scaffold",
     "cost-protection",
-    "circuit-breaker"
+    "circuit-breaker",
+    "billing-safety",
+    "observability",
+    "telemetry",
+    "budget-enforcement",
+    "error-collection",
+    "usage-monitoring"
   ],
+  "homepage": "https://github.com/littlebearapps/platform-sdks#readme",
+  "bugs": {
+    "url": "https://github.com/littlebearapps/platform-sdks/issues"
+  },
   "author": "Little Bear Apps",
   "license": "MIT"
 }
