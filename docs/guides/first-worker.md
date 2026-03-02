@@ -222,9 +222,10 @@ npx wrangler kv key put CONFIG:FEATURE:myapp:api:main:STATUS GO --namespace-id Y
 ## What's Next
 
 - **Add more features**: Wrap cron and queue handlers with `withCronBudget` and `withQueueBudget`
+- **Add observability**: Set up [structured logging, distributed tracing, and AI Gateway tracking](observability.md)
+- **Add health checks**: Configure [health endpoints, Gatus heartbeats, and budget alerts](health-monitoring.md)
 - **Upgrade tier**: Add error collection with `npx @littlebearapps/platform-admin-sdk upgrade --tier standard`
 - **Add CI**: Set up the [consumer-check.yml workflow](../admin-sdk/ci-workflow.md)
 - **Add middleware**: Protect entire projects with [project-level circuit breakers](../consumer-sdk/middleware.md)
-- **Monitor**: Set up [Gatus heartbeats](../consumer-sdk/advanced.md#heartbeat-ping-gatus) for uptime monitoring
-- **Multi-account**: If you manage multiple Cloudflare accounts, see the [Multi-Account Setup guide](multi-account.md)
 - **Manage budgets**: Learn day-to-day operations in the [Managing Budgets guide](managing-budgets.md)
+- **Multi-account**: If you manage multiple Cloudflare accounts, see the [Multi-Account Setup guide](multi-account.md)

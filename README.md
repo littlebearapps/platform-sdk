@@ -93,25 +93,30 @@ Cloudflare has no built-in spending limits, budget alerts, or circuit breakers f
 ### Cost Protection
 - **Three-tier circuit breakers** — Global kill switch > project-level > feature-level. Any level can stop expensive operations instantly.
 - **Automatic budget enforcement** — Daily and monthly limits with progressive warnings at 70%, 90%, and hard stop at 100%.
-- **Per-invocation request limits** — Cap D1 writes, KV operations, or AI calls per single request.
-- **Anomaly detection** — Flags unusual resource spikes without blocking (configurable thresholds).
+- **Per-invocation request limits** — Cap D1 writes, KV operations, or AI calls per single request to prevent runaway handlers.
+- **Anomaly detection** — Flags unusual resource spikes without blocking (configurable thresholds per feature).
 - **D1 storage guard** — Monitors database size via PRAGMA to catch unbounded growth.
-- **Cost estimation** — Real-time USD cost calculation from metrics using current Cloudflare pricing.
+- **Cost estimation** — Real-time USD cost calculation using current Cloudflare pricing tiers and paid plan allowances.
 
 ### Observability
 - **Automatic telemetry** — Every binding call (D1, KV, R2, AI, Vectorize, Queue, DO, Workflow) tracked without code changes.
-- **W3C distributed tracing** — Full `traceparent` propagation across service bindings.
-- **Structured logging** — JSON logs with correlation IDs that follow requests across workers.
-- **Transient error classification** — 125 built-in patterns + AI-discovered dynamic patterns for operational noise reduction.
-- **Heartbeat monitoring** — Gatus integration for cron health verification.
+- **W3C distributed tracing** — Full `traceparent` / `tracestate` propagation across service bindings with span lifecycle management.
+- **Structured JSON logging** — Log levels (debug/info/warn/error), automatic correlation ID extraction, timed operations, child loggers.
+- **AI Gateway tracking** — Automatic provider + model detection for 10+ AI providers routed through Cloudflare AI Gateway.
+- **Transient error classification** — 125 built-in patterns + AI-discovered dynamic patterns (human-approved) for noise reduction.
+- **Error categorisation** — 11 error categories (D1, KV, Queue, Network, Timeout, Auth, etc.) for consistent classification.
+- **Health checks** — Dual-plane health validation: control plane (KV + circuit breaker) and data plane (queue delivery).
+- **Heartbeat monitoring** — Gatus integration for cron health verification + Durable Object alarm-based heartbeats.
 
 ### Developer Experience
 - **Zero production dependencies** — Raw TypeScript source, bundled by wrangler. Nothing extra in your worker.
-- **One-line integration** — Wrap your handler with `withFeatureBudget()`, done.
+- **One-line integration** — Wrap your handler with `withFeatureBudget()`, done. Cron and queue wrappers too.
 - **Hono middleware** — Project-level circuit breakers as middleware for Hono apps.
-- **Service client** — Cross-worker correlation chain propagation with automatic trace context.
-- **AI Gateway integration** — Automatic model and provider tracking for AI Gateway URLs.
-- **Exponential backoff** — Built-in retry helper with configurable attempts and backoff.
+- **Service client** — Cross-worker correlation chain and trace context propagation via service bindings.
+- **AI Gateway integration** — Drop-in `createAIGatewayFetch()` wrapper that tracks model usage automatically.
+- **Timeout utilities** — `withTimeout()`, `withTrackedTimeout()`, and handler-level `withRequestTimeout()` with configurable defaults.
+- **Exponential backoff** — Built-in retry helper with configurable attempts and capped backoff.
+- **Durable Object heartbeat mixin** — `withHeartbeat()` adds alarm-based health pings to any DO class.
 
 ---
 
@@ -148,6 +153,13 @@ npm install @littlebearapps/platform-consumer-sdk
 | `completeTracking()` | Flush metrics (call in `finally` / `waitUntil`) |
 | `CircuitBreakerError` | Catch when a feature is disabled |
 | `health()` | Dual-plane health check (KV + queue) |
+| `createLoggerFromRequest()` | Structured JSON logger with correlation ID extraction |
+| `createTraceContext()` | W3C distributed tracing from incoming request |
+| `createServiceClient()` | Cross-worker RPC with automatic header propagation |
+| `createAIGatewayFetch()` | AI Gateway wrapper with provider/model tracking |
+| `withTimeout()` | Wrap any async operation with a configurable timeout |
+| `categoriseError()` | Classify errors into 11 categories |
+| `withHeartbeat()` | Durable Object alarm-based heartbeat mixin |
 
 **Sub-path imports:** [`/middleware`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkmiddleware) · [`/patterns`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkpatterns) · [`/dynamic-patterns`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkdynamic-patterns) · [`/costs`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkcosts) · [`/heartbeat`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkheartbeat) · [`/retry`](packages/consumer-sdk/README.md#littlebearappsplatform-consumer-sdkretry)
 
@@ -312,9 +324,11 @@ jobs:
 
 ### How-To Guides
 
-- [Multi-Account Setup](docs/guides/multi-account.md) — Using SDKs across multiple Cloudflare accounts
+- [Health Monitoring & Heartbeats](docs/guides/health-monitoring.md) — Health checks, Gatus heartbeats, DO heartbeats, budget alerts
+- [Observability Setup](docs/guides/observability.md) — Structured logging, distributed tracing, AI Gateway tracking, timeouts
 - [Managing Budgets and Circuit Breakers](docs/guides/managing-budgets.md) — Day-to-day operations
 - [Setting Up Error Collection](docs/guides/error-collection-setup.md) — Automatic GitHub issues from worker errors
+- [Multi-Account Setup](docs/guides/multi-account.md) — Using SDKs across multiple Cloudflare accounts
 
 ### Reference
 

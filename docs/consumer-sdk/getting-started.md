@@ -258,9 +258,11 @@ Once you wrap your handler, every binding call is tracked without code changes:
 
 ## What's Next
 
+- [Health Monitoring & Heartbeats](../guides/health-monitoring.md) — Health checks, Gatus heartbeats, budget alerts
+- [Observability Setup](../guides/observability.md) — Structured logging, distributed tracing, AI Gateway, timeouts
 - [Circuit Breakers](circuit-breakers.md) — Understand the three-tier protection hierarchy
 - [Middleware](middleware.md) — Add project-level circuit breakers for Hono apps
-- [Advanced Features](advanced.md) — Tracing, logging, service client, AI Gateway, DO heartbeat
-- [Troubleshooting](troubleshooting.md) — Common issues and fixes
+- [Advanced Features](advanced.md) — Full API reference for tracing, logging, service client, AI Gateway, DO heartbeat
 - [Managing Budgets](../guides/managing-budgets.md) — Day-to-day operations
 - [Error Collection](../guides/error-collection-setup.md) — Automatic GitHub issues from worker errors
+- [Troubleshooting](troubleshooting.md) — Common issues and fixes

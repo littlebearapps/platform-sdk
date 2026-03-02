@@ -43,9 +43,11 @@ Task-oriented guides for common operations.
 
 | Guide | What It Covers |
 |-------|---------------|
-| [Multi-Account Setup](guides/multi-account.md) | Using Platform SDKs across multiple Cloudflare accounts |
+| [Health Monitoring & Heartbeats](guides/health-monitoring.md) | Health checks, Gatus heartbeats, DO heartbeats, budget warning alerts |
+| [Observability Setup](guides/observability.md) | Structured logging, distributed tracing, AI Gateway tracking, timeouts, error categorisation |
 | [Managing Budgets and Circuit Breakers](guides/managing-budgets.md) | Checking status, resetting breakers, adjusting limits, emergency procedures |
 | [Setting Up Error Collection](guides/error-collection-setup.md) | Automatic GitHub issue creation from worker errors (Standard tier) |
+| [Multi-Account Setup](guides/multi-account.md) | Using Platform SDKs across multiple Cloudflare accounts |
 
 ---
 
@@ -85,6 +87,7 @@ Background knowledge and architectural decisions.
 - [Circuit Breaker Hierarchy](consumer-sdk/circuit-breakers.md) — Why three tiers, and how they interact
 - [Error Pattern System](consumer-sdk/patterns.md) — Static regex patterns + AI-discovered dynamic patterns
 - [Telemetry Pipeline](consumer-sdk/telemetry.md) — Queue-based async metrics, Analytics Engine integration
+- [Cost Calculations](consumer-sdk/advanced.md#cost-calculations) — Cloudflare pricing tiers, hourly/daily cost estimation
 
 ---
 

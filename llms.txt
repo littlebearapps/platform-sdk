@@ -143,7 +143,7 @@ Commands: `/platform-integrate`, `/platform-audit`, `/platform-health`, `/platfo
 
 Getting Started: docs/consumer-sdk/getting-started.md (consumer SDK), docs/admin-sdk/quickstart.md (admin SDK)
 Tutorials: docs/guides/first-worker.md (end-to-end), docs/guides/migrating-from-v0.md
-How-To: docs/guides/multi-account.md, docs/guides/managing-budgets.md, docs/guides/error-collection-setup.md
+How-To: docs/guides/health-monitoring.md, docs/guides/observability.md, docs/guides/managing-budgets.md, docs/guides/error-collection-setup.md, docs/guides/multi-account.md
 Consumer SDK Reference: docs/consumer-sdk/ (concepts, circuit-breakers, feature-ids, middleware, telemetry, patterns, advanced, troubleshooting)
 Admin SDK Reference: docs/admin-sdk/ (quickstart, tiers, upgrade-guide, ci-workflow)
 

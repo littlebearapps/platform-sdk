@@ -506,9 +506,11 @@ See the [Multi-Account Setup guide](../../docs/guides/multi-account.md) for arch
 - [Error Patterns](../../docs/consumer-sdk/patterns.md) — Static and dynamic transient error classification
 - [Advanced Features](../../docs/consumer-sdk/advanced.md) — Tracing, logging, service client, AI Gateway
 - [Troubleshooting](../../docs/consumer-sdk/troubleshooting.md) — Expanded issue guide
+- [Health Monitoring & Heartbeats](../../docs/guides/health-monitoring.md) — Health checks, Gatus heartbeats, budget alerts
+- [Observability Setup](../../docs/guides/observability.md) — Structured logging, distributed tracing, AI Gateway, timeouts
 - [Managing Budgets](../../docs/guides/managing-budgets.md) — Day-to-day budget and circuit breaker operations
-- [Multi-Account Setup](../../docs/guides/multi-account.md) — Using SDKs across multiple Cloudflare accounts
 - [Error Collection Setup](../../docs/guides/error-collection-setup.md) — Automatic GitHub issues from worker errors
+- [Multi-Account Setup](../../docs/guides/multi-account.md) — Using SDKs across multiple Cloudflare accounts
 
 ## Licence
 
